@@ -6,9 +6,9 @@ import { loadSlim } from "tsparticles-slim";
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import CountUp from 'react-countup';
 import confetti from 'canvas-confetti';
-import ReactCrop from 'react-image-crop'; 
-import 'react-image-crop/dist/ReactCrop.css'; 
-import jsPDF from 'jspdf'; // 👈 IMPORTED JSPDF
+import ReactCrop from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
+import jsPDF from 'jspdf';
 import './ApplicantDashboard.css';
 
 const STANDARD_TYPES = ["Research", "Travel", "Equipment", "Stipend"];
@@ -17,12 +17,12 @@ const API = 'http://localhost:3001';
 
 const getTier = (grants) => {
   const completed = grants.filter(g => g.status === 'Evaluated' || g.status === 'Fully Disbursed').length;
-  const total     = grants.length;
+  const total = grants.length;
   if (total === 0) return { label: 'New Applicant', color: 'var(--text-muted)', bg: 'var(--bg-elevated)', icon: '🌱' };
   const rate = completed / total;
-  if (completed >= 3 && rate >= 0.8) return { label: 'Gold Member',   color: 'var(--accent-yellow)', bg: 'var(--bg-warn-panel)',  icon: '🥇' };
+  if (completed >= 3 && rate >= 0.8) return { label: 'Gold Member', color: 'var(--accent-yellow)', bg: 'var(--bg-warn-panel)', icon: '🥇' };
   if (completed >= 1 && rate >= 0.5) return { label: 'Silver Member', color: 'var(--text-secondary)', bg: 'var(--bg-elevated)', icon: '🥈' };
-  return                                    { label: 'Bronze Member', color: '#f97316', bg: 'var(--bg-info-panel)',  icon: '🥉' };
+  return { label: 'Bronze Member', color: '#f97316', bg: 'var(--bg-info-panel)', icon: '🥉' };
 };
 
 const getEligibilityInfo = (creditScore) => {
@@ -30,20 +30,20 @@ const getEligibilityInfo = (creditScore) => {
   const score = parseInt(creditScore);
   const percent = `${Math.min(100, Math.max(0, ((score - 300) / 600) * 100))}%`;
   if (score >= 750) return { limit: 100000, msg: '✅ Gold Tier: Eligible up to ₹1,00,000', color: 'var(--accent-green)', width: percent };
-  if (score >= 600) return { limit: 25000,  msg: '⚠️ Standard Tier: Eligible up to ₹25,000', color: 'var(--accent-yellow)', width: percent };
-  return                   { limit: 0,      msg: '❌ Score too low. Not eligible.',            color: 'var(--accent-red)', width: percent };
+  if (score >= 600) return { limit: 25000, msg: '⚠️ Standard Tier: Eligible up to ₹25,000', color: 'var(--accent-yellow)', width: percent };
+  return { limit: 0, msg: '❌ Score too low. Not eligible.', color: 'var(--accent-red)', width: percent };
 };
 
 const getTagClass = (t) => STANDARD_TYPES.includes(t) ? `cat-${t}` : 'cat-Other';
 
 const STATUS_ICON = {
-  'Pending':         { icon: '⏳', color: 'var(--accent-yellow)', msg: 'Waiting for admin review'          },
-  'Phase 1 Approved':{ icon: '✅', color: 'var(--accent-green)', msg: '35% released — upload your proofs' },
-  'Awaiting Review': { icon: '🔍', color: '#f97316', msg: 'Admin is reviewing your proofs'    },
-  'Fully Disbursed': { icon: '💰', color: 'var(--accent-purple)', msg: 'All funds released — submit report'},
-  'Evaluated':       { icon: '🚀', color: 'var(--accent-cyan)', msg: 'Project complete'                  },
-  'Rejected':        { icon: '❌', color: 'var(--accent-red)', msg: 'Application rejected'               },
-  'Blocked':         { icon: '🛑', color: '#b91c1c', msg: 'Account frozen pending investigation.'      },
+  'Pending': { icon: '⏳', color: 'var(--accent-yellow)', msg: 'Waiting for admin review' },
+  'Phase 1 Approved': { icon: '✅', color: 'var(--accent-green)', msg: '35% released — upload your proofs' },
+  'Awaiting Review': { icon: '🔍', color: '#f97316', msg: 'Admin is reviewing your proofs' },
+  'Fully Disbursed': { icon: '💰', color: 'var(--accent-purple)', msg: 'All funds released — submit report' },
+  'Evaluated': { icon: '🚀', color: 'var(--accent-cyan)', msg: 'Project complete' },
+  'Rejected': { icon: '❌', color: 'var(--accent-red)', msg: 'Application rejected' },
+  'Blocked': { icon: '🛑', color: '#b91c1c', msg: 'Account frozen pending investigation.' },
 };
 
 const triggerConfetti = () => {
@@ -58,7 +58,7 @@ const triggerConfetti = () => {
 
 const SpringTooltip = ({ text, children }) => {
   const [show, setShow] = useState(false);
-  const [pos,  setPos]  = useState({ x: 0, y: 0 });
+  const [pos, setPos] = useState({ x: 0, y: 0 });
   return (
     <div
       style={{ display: 'inline-block' }}
@@ -84,11 +84,11 @@ const CyberText = ({ text, className }) => {
     let iterations = 0;
     const interval = setInterval(() => {
       setDisplayText(t => text.split("").map((l, i) => {
-        if(i < iterations) return text[i];
+        if (i < iterations) return text[i];
         return letters[Math.floor(Math.random() * letters.length)]
       }).join(""));
-      if(iterations >= text.length) clearInterval(interval);
-      iterations += 1/3;
+      if (iterations >= text.length) clearInterval(interval);
+      iterations += 1 / 3;
     }, 30);
     return () => clearInterval(interval);
   }, [text]);
@@ -109,7 +109,7 @@ const TiltCard = ({ children, className, style, onClick }) => {
     setSpotlight({ x: mX, y: mY, opacity: 1 });
   };
   const handleMouseLeave = () => { x.set(0); y.set(0); setSpotlight(p => ({ ...p, opacity: 0 })); };
-  
+
   return (
     <motion.div onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave} style={{ rotateX, rotateY, transformStyle: "preserve-3d", perspective: "1000px", overflow: 'visible', cursor: onClick ? 'pointer' : 'default', ...style }} className={className} onClick={onClick}>
       <div style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', pointerEvents: 'none', zIndex: 0, background: `radial-gradient(circle 200px at ${spotlight.x}px ${spotlight.y}px, rgba(255,255,255,0.06), transparent)`, opacity: spotlight.opacity, transition: 'opacity 0.4s' }} />
@@ -120,37 +120,36 @@ const TiltCard = ({ children, className, style, onClick }) => {
   );
 };
 
-// Mini sparkline — 6 data points rendered as SVG polyline with area fill
 const Sparkline = ({ points = [], color = '#4f9cf9', height = 28 }) => {
   if (!points || points.length < 2) return null;
   const max = Math.max(...points, 1);
   const min = Math.min(...points, 0);
   const range = max - min || 1;
   const W = 80; const H = height;
-  const pts = points.map((v, i) => `${(i / (points.length-1)) * W},${H - ((v-min)/range)*H}`).join(' ');
-  const gradId = `sg${color.replace(/[^a-z0-9]/gi,'')}`;
+  const pts = points.map((v, i) => `${(i / (points.length - 1)) * W},${H - ((v - min) / range) * H}`).join(' ');
+  const gradId = `sg${color.replace(/[^a-z0-9]/gi, '')}`;
   return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ overflow:'visible', display:'block' }}>
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible', display: 'block' }}>
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stopColor={color} stopOpacity="0.3" />
-          <stop offset="100%" stopColor={color} stopOpacity="0"   />
+          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
       </defs>
       <polygon points={`0,${H} ${pts} ${W},${H}`} fill={`url(#${gradId})`} />
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" style={{ filter:`drop-shadow(0 0 3px ${color}88)` }} />
-      <circle cx={(points.length-1)/(points.length-1)*W} cy={H-((points[points.length-1]-min)/range)*H} r="2.5" fill={color} style={{ filter:`drop-shadow(0 0 4px ${color})` }} />
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" style={{ filter: `drop-shadow(0 0 3px ${color}88)` }} />
+      <circle cx={(points.length - 1) / (points.length - 1) * W} cy={H - ((points[points.length - 1] - min) / range) * H} r="2.5" fill={color} style={{ filter: `drop-shadow(0 0 4px ${color})` }} />
     </svg>
   );
 };
 
-const StatCard = ({ label, value, prefix='', suffix='', color, sub, sparkPoints }) => (
-  <TiltCard className="glass-card stat-card" style={{ borderBottom:`2px solid ${color}44` }}>
+const StatCard = ({ label, value, prefix = '', suffix = '', color, sub, sparkPoints }) => (
+  <TiltCard className="glass-card stat-card" style={{ borderBottom: `2px solid ${color}44` }}>
     <div className="stat-label">{label}</div>
-    <div className="stat-value" style={{ color, textShadow:`0 0 28px ${color}44` }}>
+    <div className="stat-value" style={{ color, textShadow: `0 0 28px ${color}44` }}>
       {prefix}{typeof value === 'number' ? <CountUp end={value} duration={2.5} separator="," /> : value}{suffix}
     </div>
-    {sub && <div style={{ fontSize:'12px', color:'var(--text-muted)', marginTop:'5px' }}>{sub}</div>}
+    {sub && <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '5px' }}>{sub}</div>}
     {sparkPoints && sparkPoints.length >= 2 && (
       <div style={{ marginTop: '10px', opacity: 0.75 }}>
         <Sparkline points={sparkPoints} color={color} height={28} />
@@ -160,7 +159,7 @@ const StatCard = ({ label, value, prefix='', suffix='', color, sub, sparkPoints 
 );
 
 const TabBtn = ({ id, label, badge, activeTab, setActiveTab }) => (
-  <button className={`tab-btn ${activeTab===id ? 'active' : ''}`} onClick={() => setActiveTab(id)} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+  <button className={`tab-btn ${activeTab === id ? 'active' : ''}`} onClick={() => setActiveTab(id)} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
     {label}
     {badge > 0 && <span style={{ marginLeft: '8px', background: 'var(--accent-blue)', color: '#ffffff', fontSize: '12px', fontWeight: '800', padding: '2px 8px', borderRadius: '12px' }}>{badge}</span>}
   </button>
@@ -168,59 +167,57 @@ const TabBtn = ({ id, label, badge, activeTab, setActiveTab }) => (
 
 export default function ApplicantDashboard({ currentUser, currentUserEmail, grantsList = [], fetchGrants, handleLogout, isDarkMode, toggleTheme }) {
   const [activeTab, setActiveTab] = useState('overview');
-  const [source,      setSource]      = useState(currentUser);
-  const [amount,      setAmount]      = useState('');
+  const [source, setSource] = useState(currentUser);
+  const [amount, setAmount] = useState('');
   const [creditScore, setCreditScore] = useState('');
-  const [type,        setType]        = useState('Research');
-  const [customType,  setCustomType]  = useState('');
-  const [bypassMode,  setBypassMode]  = useState(false);
-  const [reapplyFrom, setReapplyFrom] = useState(null); 
-  const [impactState, setImpactState] = useState({}); 
+  const [type, setType] = useState('Research');
+  const [customType, setCustomType] = useState('');
+  const [bypassMode, setBypassMode] = useState(false);
+  const [reapplyFrom, setReapplyFrom] = useState(null);
+  const [impactState, setImpactState] = useState({});
   const [editingGrant, setEditingGrant] = useState(null);
-  const [editSource,   setEditSource]   = useState('');
-  const [editAmount,   setEditAmount]   = useState('');
-  const [editScore,    setEditScore]    = useState('');
-  const [editType,     setEditType]     = useState('');
+  const [editSource, setEditSource] = useState('');
+  const [editAmount, setEditAmount] = useState('');
+  const [editScore, setEditScore] = useState('');
+  const [editType, setEditType] = useState('');
   const [activityLogs, setActivityLogs] = useState([]);
-  const [amountError,     setAmountError]     = useState('');
+  const [amountError, setAmountError] = useState('');
   const [editAmountError, setEditAmountError] = useState('');
 
   const [proofDrafts, setProofDrafts] = useState({});
-  const [enlargedImage, setEnlargedImage] = useState(null); 
-  
+  const [enlargedImage, setEnlargedImage] = useState(null);
+
   const [cropModal, setCropModal] = useState({ isOpen: false, grantId: null, imageIndex: null, src: null });
-  const [crop, setCrop] = useState({ unit: '%', width: 50, height: 50 }); 
+  const [crop, setCrop] = useState({ unit: '%', width: 50, height: 50 });
   const [completedCrop, setCompletedCrop] = useState(null);
   const imgRef = useRef(null);
 
   const myGrants = useMemo(() => grantsList.filter(g => g.userId && g.userId.toLowerCase() === currentUserEmail.toLowerCase()).reverse(), [grantsList, currentUserEmail]);
-  const activeGrants = myGrants.filter(g => ['Phase 1 Approved','Awaiting Review','Fully Disbursed', 'Blocked'].includes(g.status));
-  const pendingGrants= myGrants.filter(g => g.status === 'Pending');
+  const activeGrants = myGrants.filter(g => ['Phase 1 Approved', 'Awaiting Review', 'Fully Disbursed', 'Blocked'].includes(g.status));
+  const pendingGrants = myGrants.filter(g => g.status === 'Pending');
   const tier = getTier(myGrants);
 
-  const totalReceived  = myGrants.reduce((s, g) => s + (g.disbursedAmount || 0), 0);
+  const totalReceived = myGrants.reduce((s, g) => s + (g.disbursedAmount || 0), 0);
   const totalRequested = myGrants.reduce((s, g) => s + g.amount, 0);
   const completedCount = myGrants.filter(g => g.status === 'Evaluated').length;
-  const pendingCount   = myGrants.filter(g => ['Pending','Phase 1 Approved','Awaiting Review'].includes(g.status)).length;
+  const pendingCount = myGrants.filter(g => ['Pending', 'Phase 1 Approved', 'Awaiting Review'].includes(g.status)).length;
   const eligibility = getEligibilityInfo(creditScore);
 
-  // Apply form inline validation
-  const applyAmountNum    = parseInt(amount) || 0;
-  const applyIsNegative   = amount !== '' && applyAmountNum <= 0;
+  const applyAmountNum = parseInt(amount) || 0;
+  const applyIsNegative = amount !== '' && applyAmountNum <= 0;
   const applyExceedsLimit = !bypassMode && amount !== '' && applyAmountNum > 0 && applyAmountNum > eligibility.limit && eligibility.limit > 0;
-  const applyFormValid    = !!(source && amount && creditScore && !applyIsNegative && !applyExceedsLimit && (type !== 'Other' || customType));
+  const applyFormValid = !!(source && amount && creditScore && !applyIsNegative && !applyExceedsLimit && (type !== 'Other' || customType));
 
-  // Sparkline data — last 6 grants in chronological order
   const last6 = [...myGrants].reverse().slice(-6);
-  const sparkReceived  = last6.map(g => g.disbursedAmount || 0);
-  const sparkActive    = last6.map((_, i) => {
+  const sparkReceived = last6.map(g => g.disbursedAmount || 0);
+  const sparkActive = last6.map((_, i) => {
     const slice = myGrants.slice(0, i + 1);
-    return slice.filter(g => ['Phase 1 Approved','Awaiting Review','Fully Disbursed'].includes(g.status)).length;
+    return slice.filter(g => ['Phase 1 Approved', 'Awaiting Review', 'Fully Disbursed'].includes(g.status)).length;
   });
   const sparkCompleted = last6.map((_, i) => myGrants.slice(0, i + 1).filter(g => g.status === 'Evaluated').length);
-  const sparkSuccess   = last6.map((_, i) => {
+  const sparkSuccess = last6.map((_, i) => {
     const slice = myGrants.slice(0, i + 1);
-    const done  = slice.filter(g => g.status === 'Evaluated').length;
+    const done = slice.filter(g => g.status === 'Evaluated').length;
     return slice.length > 0 ? Math.round((done / slice.length) * 100) : 0;
   });
 
@@ -232,7 +229,7 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
         Object.keys(parsed).forEach(k => parsed[k].images = []);
         setProofDrafts(parsed);
       }
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   useEffect(() => {
@@ -246,11 +243,11 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
   useEffect(() => {
     if (myGrants.length === 0) return;
     const mySources = new Set(myGrants.map(g => g.source?.toLowerCase()));
-    const myIds     = new Set(myGrants.map(g => String(g.id)));
+    const myIds = new Set(myGrants.map(g => String(g.id)));
     axios.get(`${API}/logs`).then(res => {
       const filtered = res.data.filter(log => mySources.has(log.target?.toLowerCase()) || myIds.has(String(log.targetId))).slice(0, 20);
       setActivityLogs(filtered);
-    }).catch(() => {});
+    }).catch(() => { });
   }, [myGrants]);
 
   const particlesInit = useCallback(async engine => { await loadSlim(engine); }, []);
@@ -275,7 +272,7 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
         setActiveTab('history'); triggerConfetti();
       })
       .catch(err => {
-        if(err.response?.data?.message?.includes('BLACKLISTED')) {
+        if (err.response?.data?.message?.includes('BLACKLISTED')) {
           alert(`🛑 CRITICAL SECURITY ALERT:\n\n${err.response.data.message}\nYour account has been locked due to repeated forensic flags.`);
         } else {
           alert(err.response?.data?.message || 'Error connecting to server');
@@ -359,13 +356,13 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
     canvas.height = completedCrop.height;
     const ctx = canvas.getContext('2d');
 
-    ctx.drawImage( image, completedCrop.x * scaleX, completedCrop.y * scaleY, completedCrop.width * scaleX, completedCrop.height * scaleY, 0, 0, completedCrop.width, completedCrop.height );
+    ctx.drawImage(image, completedCrop.x * scaleX, completedCrop.y * scaleY, completedCrop.width * scaleX, completedCrop.height * scaleY, 0, 0, completedCrop.width, completedCrop.height);
     const base64Image = canvas.toDataURL('image/jpeg', 0.8);
 
     setProofDrafts(prev => {
       const current = prev[cropModal.grantId];
       const updatedImages = [...current.images];
-      updatedImages[cropModal.imageIndex] = base64Image; 
+      updatedImages[cropModal.imageIndex] = base64Image;
       return { ...prev, [cropModal.grantId]: { ...current, images: updatedImages } };
     });
     setCropModal({ isOpen: false, grantId: null, imageIndex: null, src: null });
@@ -374,16 +371,16 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
   const addExpenseEntry = (grantId) => {
     const draft = proofDrafts[grantId] || {};
     if (!draft.vendor || !draft.amount || !draft.images?.length) return alert('Please complete the Vendor, Amount, and upload at least one receipt.');
-    
+
     const finalCategory = draft.category === 'Other' && draft.customCategory ? draft.customCategory : draft.category;
     const formattedDesc = `Vendor: ${draft.vendor} | Cat: ${finalCategory} | Amt: ₹${draft.amount} | GST: ${draft.gst || 'N/A'}`;
-    
+
     axios.post(`${API}/add-expense`, { grantId, description: formattedDesc, proofImages: draft.images })
       .then(() => {
         fetchGrants();
         setProofDrafts(prev => ({ ...prev, [grantId]: { vendor: '', category: 'Hardware', customCategory: '', amount: '', gst: '', images: [] } }));
       }).catch(err => {
-        if(err.response?.data?.message?.includes('PREVIOUS FRAUD CASE')) {
+        if (err.response?.data?.message?.includes('PREVIOUS FRAUD CASE')) {
           alert(`🛑 UPLOAD BLOCKED:\n\nOur system detected that this exact image was used in a previous fraudulent application. Your actions have been logged.`);
         } else {
           alert('Failed to save expense. Files might be too large.');
@@ -392,7 +389,7 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
   };
 
   const deleteExpenseEntry = (grantId, index) => {
-    if(!window.confirm("Delete this saved expense entry?")) return;
+    if (!window.confirm("Delete this saved expense entry?")) return;
     axios.post(`${API}/delete-expense`, { grantId, index })
       .then(() => fetchGrants())
       .catch(() => alert("Failed to delete."));
@@ -421,21 +418,18 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
     }, 0);
   };
 
-  // ✨ NEW: Generate PDF Impact Certificate
   const generateCertificate = (grant) => {
     const doc = new jsPDF({ orientation: 'landscape', format: 'a4' });
 
-    // Background & Borders
-    doc.setFillColor(15, 23, 42); // Dark slate background
+    doc.setFillColor(15, 23, 42);
     doc.rect(0, 0, 297, 210, 'F');
-    doc.setDrawColor(59, 130, 246); // Blue inner border
+    doc.setDrawColor(59, 130, 246);
     doc.setLineWidth(2);
     doc.rect(10, 10, 277, 190, 'S');
-    doc.setDrawColor(139, 92, 246); // Purple outer accent
+    doc.setDrawColor(139, 92, 246);
     doc.setLineWidth(0.5);
     doc.rect(12, 12, 273, 186, 'S');
 
-    // Header
     doc.setTextColor(248, 250, 252);
     doc.setFontSize(36);
     doc.setFont(undefined, 'bold');
@@ -446,13 +440,12 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
     doc.setTextColor(148, 163, 184);
     doc.text("Official Record of Cryptographically Sealed Grant Delivery", 148.5, 55, { align: "center" });
 
-    // Body
     doc.setFontSize(16);
     doc.setTextColor(248, 250, 252);
     doc.text("This certifies that", 148.5, 85, { align: "center" });
 
     doc.setFontSize(32);
-    doc.setTextColor(52, 211, 153); // Neon Green
+    doc.setTextColor(52, 211, 153);
     doc.setFont(undefined, 'bold');
     doc.text(grant.source, 148.5, 100, { align: "center" });
 
@@ -462,7 +455,6 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
     doc.text(`has successfully deployed a ₹${grant.amount.toLocaleString()} capital allocation`, 148.5, 115, { align: "center" });
     doc.text(`under the ${grant.type} classification framework.`, 148.5, 122, { align: "center" });
 
-    // Impact Specifics
     if (grant.impact) {
       doc.setFillColor(30, 41, 59);
       doc.rect(40, 135, 217, 25, 'F');
@@ -472,7 +464,6 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
       doc.text(`Key Performance Metric Achieved: ${grant.impact.metric}`, 148.5, 152, { align: "center" });
     }
 
-    // Ledger Seal
     doc.setDrawColor(255, 255, 255, 0.1);
     doc.line(40, 175, 257, 175);
 
@@ -481,32 +472,31 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
     doc.text(`Cryptographic Ledger Hash (SHA-256):`, 148.5, 182, { align: "center" });
     doc.setFont(undefined, 'bold');
     doc.text(grant.currentHash, 148.5, 188, { align: "center" });
-    
+
     doc.setFont(undefined, 'normal');
     doc.setFontSize(9);
     doc.text(`Date Verified: ${grant.impact ? grant.impact.date : grant.date} | ID: ${grant.id}`, 148.5, 194, { align: "center" });
 
-    // Trigger celebration and download!
     triggerConfetti();
     doc.save(`${grant.source}_Impact_Certificate_${grant.id}.pdf`);
   };
 
   return (
     <div className="app-wrapper" style={{ position: 'relative' }}>
-      <Particles 
-        id="applicant-particles" 
-        init={particlesInit} 
+      <Particles
+        id="applicant-particles"
+        init={particlesInit}
         style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, pointerEvents: 'none' }}
         options={{
-            fpsLimit: 60,
-            interactivity: { events: { onHover: { enable: true, mode: isDarkMode ? "grab" : "repulse" } }, modes: { grab: { distance: 180, links: { opacity: 0.6, color: "#3b82f6" } }, repulse: { distance: 120, duration: 0.4 } } },
-            particles: { color: { value: isDarkMode ? ["#3b82f6", "#10b981", "#64748b"] : ["#4f9cf9", "#34d399", "#a78bfa", "#fbbf24"] }, links: { color: isDarkMode ? "#334155" : "#ffffff", distance: 150, enable: isDarkMode, opacity: 0.3, width: 1 }, move: { enable: true, speed: isDarkMode ? 0.4 : 0.8, direction: isDarkMode ? "none" : "top", random: true, straight: false, outModes: { default: "out" } }, number: { density: { enable: true, area: 1200 }, value: isDarkMode ? 40 : 25 }, opacity: { value: isDarkMode ? 0.4 : 0.7, animation: { enable: !isDarkMode, speed: 0.5, minimumValue: 0.1 } }, shape: { type: "circle" }, size: { value: { min: isDarkMode ? 1 : 3, max: isDarkMode ? 2 : 8 } } },
-            detectRetina: true,
+          fpsLimit: 60,
+          interactivity: { events: { onHover: { enable: true, mode: isDarkMode ? "grab" : "repulse" } }, modes: { grab: { distance: 180, links: { opacity: 0.6, color: "#3b82f6" } }, repulse: { distance: 120, duration: 0.4 } } },
+          particles: { color: { value: isDarkMode ? ["#3b82f6", "#10b981", "#64748b"] : ["#4f9cf9", "#34d399", "#a78bfa", "#fbbf24"] }, links: { color: isDarkMode ? "#334155" : "#ffffff", distance: 150, enable: isDarkMode, opacity: 0.3, width: 1 }, move: { enable: true, speed: isDarkMode ? 0.4 : 0.8, direction: isDarkMode ? "none" : "top", random: true, straight: false, outModes: { default: "out" } }, number: { density: { enable: true, area: 1200 }, value: isDarkMode ? 40 : 25 }, opacity: { value: isDarkMode ? 0.4 : 0.7, animation: { enable: !isDarkMode, speed: 0.5, minimumValue: 0.1 } }, shape: { type: "circle" }, size: { value: { min: isDarkMode ? 1 : 3, max: isDarkMode ? 2 : 8 } } },
+          detectRetina: true,
         }}
       />
       <div className="ambient-glow glow-1"></div>
       <div className="ambient-glow glow-2"></div>
-      
+
       <div className="app-container" style={{ position: 'relative', zIndex: 10 }}>
         <div className="header">
           <div>
@@ -523,18 +513,18 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
         </div>
 
         <div className="tab-bar">
-          <TabBtn id="overview"  label="📊 Overview" activeTab={activeTab} setActiveTab={setActiveTab} />
-          <TabBtn id="active"    label="🟢 Active" badge={activeGrants.length} activeTab={activeTab} setActiveTab={setActiveTab} />
-          <TabBtn id="apply"     label={reapplyFrom ? '🔁 Reapplying' : '📝 Apply'} activeTab={activeTab} setActiveTab={setActiveTab} />
-          <TabBtn id="history"   label="📂 History" badge={pendingGrants.length} activeTab={activeTab} setActiveTab={setActiveTab} />
+          <TabBtn id="overview" label="📊 Overview" activeTab={activeTab} setActiveTab={setActiveTab} />
+          <TabBtn id="active" label="🟢 Active" badge={activeGrants.length} activeTab={activeTab} setActiveTab={setActiveTab} />
+          <TabBtn id="apply" label={reapplyFrom ? '🔁 Reapplying' : '📝 Apply'} activeTab={activeTab} setActiveTab={setActiveTab} />
+          <TabBtn id="history" label="📂 History" badge={pendingGrants.length} activeTab={activeTab} setActiveTab={setActiveTab} />
         </div>
 
         {activeTab === 'overview' && (<>
           <div className="summary-row" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
-            <StatCard label="Total Received"  value={totalReceived} prefix="₹" color="var(--accent-blue)"   sub={`of ₹${totalRequested.toLocaleString()} requested`} sparkPoints={sparkReceived} />
-            <StatCard label="Active Projects" value={activeGrants.length}       color="var(--accent-yellow)" sub={`${pendingCount} pending`}                           sparkPoints={sparkActive} />
-            <StatCard label="Completed"       value={completedCount}             color="var(--accent-green)"  sub="evaluated projects"                                  sparkPoints={sparkCompleted} />
-            <StatCard label="Success Rate"    value={myGrants.length > 0 ? Math.round((completedCount / myGrants.length) * 100) : '—'} suffix={myGrants.length > 0 ? "%" : ""} color="var(--accent-purple)" sub={`${myGrants.length} total grants`} sparkPoints={sparkSuccess} />
+            <StatCard label="Total Received" value={totalReceived} prefix="₹" color="var(--accent-blue)" sub={`of ₹${totalRequested.toLocaleString()} requested`} sparkPoints={sparkReceived} />
+            <StatCard label="Active Projects" value={activeGrants.length} color="var(--accent-yellow)" sub={`${pendingCount} pending`} sparkPoints={sparkActive} />
+            <StatCard label="Completed" value={completedCount} color="var(--accent-green)" sub="evaluated projects" sparkPoints={sparkCompleted} />
+            <StatCard label="Success Rate" value={myGrants.length > 0 ? Math.round((completedCount / myGrants.length) * 100) : '—'} suffix={myGrants.length > 0 ? "%" : ""} color="var(--accent-purple)" sub={`${myGrants.length} total grants`} sparkPoints={sparkSuccess} />
           </div>
 
           <div className="glass-card" style={{ marginBottom: '24px' }}>
@@ -542,7 +532,7 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
               <div>
                 <div style={{ color: 'var(--text-heading)', fontFamily: 'DM Serif Display, serif', fontSize: '20px', fontWeight: '400', marginBottom: '4px' }}>{tier.icon} {tier.label}</div>
                 <div style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
-                  {completedCount < 1 ? 'Complete your first project to earn Bronze' : completedCount < 3 ? `${3 - completedCount} more project${3-completedCount>1?'s':''} to reach Gold` : '🏆 Maximum tier achieved!'}
+                  {completedCount < 1 ? 'Complete your first project to earn Bronze' : completedCount < 3 ? `${3 - completedCount} more project${3 - completedCount > 1 ? 's' : ''} to reach Gold` : '🏆 Maximum tier achieved!'}
                 </div>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '20px' }}>
@@ -551,40 +541,34 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
               </div>
             </div>
 
-            {/* 3-node tier track */}
             {(() => {
               const nodes = [
                 { label: 'Bronze', icon: '🥉', color: '#f97316', req: 1 },
                 { label: 'Silver', icon: '🥈', color: '#94a3b8', req: 2 },
-                { label: 'Gold',   icon: '🥇', color: '#fbbf24', req: 3 },
+                { label: 'Gold', icon: '🥇', color: '#fbbf24', req: 3 },
               ];
               return (
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0 4px' }}>
-                  {/* Connecting track line */}
-                  <div style={{
-                    position: 'absolute', top: '50%', left: '24px', right: '24px',
-                    height: '2px', transform: 'translateY(-50%)',
-                    background: 'var(--border-subtle)', borderRadius: '2px', zIndex: 0,
-                  }} />
-                  {/* Filled progress */}
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.min(100, (completedCount / 3) * 100)}%` }}
-                    transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
-                    style={{
-                      position: 'absolute', top: '50%', left: '24px',
-                      height: '2px', transform: 'translateY(-50%)',
-                      background: `linear-gradient(90deg, #f97316, #94a3b8, #fbbf24)`,
-                      borderRadius: '2px', zIndex: 1,
-                      maxWidth: 'calc(100% - 48px)',
-                    }}
-                  />
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', padding: '8px 0 4px' }}>
+
+                  <div style={{ position: 'absolute', top: '30px', left: '16.66%', right: '16.66%', height: '2px', zIndex: 0 }}>
+                    <div style={{ width: '100%', height: '100%', background: 'var(--border-subtle)', borderRadius: '2px' }} />
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(100, (completedCount / 3) * 100)}%` }}
+                      transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
+                      style={{
+                        position: 'absolute', top: 0, left: 0, height: '100%',
+                        background: `linear-gradient(90deg, #f97316, #94a3b8, #fbbf24)`,
+                        borderRadius: '2px',
+                      }}
+                    />
+                  </div>
+
                   {nodes.map((n, idx) => {
                     const reached = completedCount >= n.req;
                     const isCurrent = tier.label.toLowerCase().includes(n.label.toLowerCase());
                     return (
-                      <div key={n.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', zIndex: 2, position: 'relative' }}>
-                        {/* Node circle */}
+                      <div key={n.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', zIndex: 2, position: 'relative' }}>
                         <motion.div
                           animate={isCurrent ? { scale: [1, 1.12, 1] } : {}}
                           transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
@@ -600,7 +584,6 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                         >
                           {reached ? n.icon : <span style={{ fontSize: '16px', color: 'var(--text-muted)' }}>○</span>}
                         </motion.div>
-                        {/* Label */}
                         <div style={{
                           fontSize: '11px', fontWeight: '700',
                           color: reached ? n.color : 'var(--text-muted)',
@@ -609,8 +592,7 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                         }}>
                           {n.label}
                         </div>
-                        {/* Req label */}
-                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{n.req} project{n.req > 1 ? 's' : ''}</div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', textAlign: 'center', whiteSpace: 'nowrap' }}>{n.req} project{n.req > 1 ? 's' : ''}</div>
                       </div>
                     );
                   })}
@@ -639,7 +621,6 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
             ) : (
               <div style={{ position: 'relative', paddingLeft: '32px' }}>
 
-                {/* Vertical spine */}
                 <div style={{
                   position: 'absolute', left: '8px', top: '8px',
                   bottom: '8px', width: '2px',
@@ -647,16 +628,14 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                   borderRadius: '2px',
                 }} />
 
-                {/* Tracing beam glow on spine */}
                 <div className="timeline-beam-glow" style={{ left: '7px' }} />
 
                 {activityLogs.map((log, i) => {
-                  const act     = log.action?.toUpperCase() || '';
-                  const isGood  = ['PHASE 1 APPROVED','FULLY DISBURSED','EVALUATED','PROOF UPLOADED','IMPACT LOGGED','SUBMITTED'].includes(act);
-                  const isBad   = ['REJECTED','BLOCKED','BLACKLISTED FILES','BLOCKED UPLOAD'].includes(act);
+                  const act = log.action?.toUpperCase() || '';
+                  const isGood = ['PHASE 1 APPROVED', 'FULLY DISBURSED', 'EVALUATED', 'PROOF UPLOADED', 'IMPACT LOGGED', 'SUBMITTED'].includes(act);
+                  const isBad = ['REJECTED', 'BLOCKED', 'BLACKLISTED FILES', 'BLOCKED UPLOAD'].includes(act);
                   const dotColor = isGood ? 'var(--accent-green)' : isBad ? 'var(--accent-red)' : 'var(--accent-yellow)';
-                  // Important events get a highlighted row
-                  const isHighlight = ['PHASE 1 APPROVED','FULLY DISBURSED','EVALUATED'].includes(act);
+                  const isHighlight = ['PHASE 1 APPROVED', 'FULLY DISBURSED', 'EVALUATED'].includes(act);
                   const isLast = i === activityLogs.length - 1;
 
                   return (
@@ -670,9 +649,7 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                         marginBottom: isLast ? 0 : '2px',
                       }}
                     >
-                      {/* Dot column */}
                       <div style={{ width: '32px', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '14px' }}>
-                        {/* Dot */}
                         <motion.div
                           animate={isHighlight ? { scale: [1, 1.3, 1], opacity: [1, 0.7, 1] } : {}}
                           transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut', delay: i * 0.3 }}
@@ -690,7 +667,6 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                         />
                       </div>
 
-                      {/* Content row */}
                       <div style={{
                         flex: 1,
                         padding: '12px 14px',
@@ -740,20 +716,20 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
               <button className="neon-btn" style={{ width: 'auto', marginTop: '24px', padding: '12px 28px' }} onClick={() => setActiveTab('apply')}>Submit New Application</button>
             </div>
           ) : activeGrants.map(grant => {
-            const isPhase1  = grant.status === 'Phase 1 Approved';
-            const isReview  = grant.status === 'Awaiting Review';
-            const isFull    = grant.status === 'Fully Disbursed';
+            const isPhase1 = grant.status === 'Phase 1 Approved';
+            const isReview = grant.status === 'Awaiting Review';
+            const isFull = grant.status === 'Fully Disbursed';
             const isBlocked = grant.status === 'Blocked';
-            const si        = STATUS_ICON[grant.status] || {};
-            const draft     = proofDrafts[grant.id] || { vendor: '', category: 'Hardware', customCategory: '', amount: '', gst: '', images: [] };
-            const imp       = impactState[grant.id]  || {};
+            const si = STATUS_ICON[grant.status] || {};
+            const draft = proofDrafts[grant.id] || { vendor: '', category: 'Hardware', customCategory: '', amount: '', gst: '', images: [] };
+            const imp = impactState[grant.id] || {};
             const allProofs = grant.proofs || [];
-            
+
             const loggedAmount = getLoggedTotal(allProofs);
             const disbursed = grant.disbursedAmount || 0;
             const trackerPct = disbursed > 0 ? Math.min(100, (loggedAmount / disbursed) * 100) : 0;
             const remainingBudget = disbursed - loggedAmount;
-            
+
             const draftAmountNum = Number(draft.amount || 0);
             const willExceed = draftAmountNum > remainingBudget;
             const isNegative = draftAmountNum <= 0 && draft.amount !== '';
@@ -804,14 +780,12 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                       <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Add all expenses, then submit to admin</span>
                     </div>
 
-                    {/* ── Financial Accountability — animated ring ── */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: '14px', padding: '18px 20px', marginBottom: '20px' }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: '14px', color: 'var(--text-primary)', fontWeight: '700', marginBottom: '6px' }}>Financial Accountability</div>
                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
                           You have logged <strong style={{ color: trackerPct >= 80 ? 'var(--accent-green)' : 'var(--accent-yellow)' }}>₹{loggedAmount.toLocaleString()}</strong> of your <strong>₹{disbursed.toLocaleString()}</strong> released funds.
                         </div>
-                        {/* Mini progress bar */}
                         <div style={{ height: '4px', background: 'var(--bg-elevated)', borderRadius: '4px', marginTop: '10px', overflow: 'hidden' }}>
                           <motion.div
                             initial={{ width: 0 }}
@@ -821,12 +795,9 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                           />
                         </div>
                       </div>
-                      {/* Large animated SVG ring */}
                       <div style={{ position: 'relative', width: '80px', height: '80px', flexShrink: 0 }}>
                         <svg width="80" height="80" viewBox="0 0 80 80" style={{ transform: 'rotate(-90deg)' }}>
-                          {/* Track */}
                           <circle cx="40" cy="40" r="32" fill="none" stroke="var(--border-subtle)" strokeWidth="6" />
-                          {/* Animated fill */}
                           <motion.circle
                             cx="40" cy="40" r="32"
                             fill="none"
@@ -840,7 +811,6 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                             style={{ filter: `drop-shadow(0 0 6px ${trackerPct >= 80 ? '#10b981' : trackerPct >= 40 ? '#fbbf24' : '#ef4444'}88)` }}
                           />
                         </svg>
-                        {/* Centre text */}
                         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                           <span style={{ fontFamily: 'DM Serif Display, serif', fontSize: '18px', color: trackerPct >= 80 ? 'var(--accent-green)' : trackerPct >= 40 ? 'var(--accent-yellow)' : 'var(--accent-red)', lineHeight: 1 }}>
                             {Math.round(trackerPct)}
@@ -890,14 +860,14 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
 
                     <div className="bg-dashed" style={{ marginBottom: '16px' }}>
                       <div style={{ fontSize: '15px', color: 'var(--accent-yellow)', fontWeight: '800', marginBottom: '16px' }}>+ Add New Expense Entry</div>
-                      
+
                       <div className="ledger-grid">
                         <div className="full-width">
-                          <label className="input-label" style={{fontSize:'11px'}}>VENDOR / PAYEE NAME</label>
+                          <label className="input-label" style={{ fontSize: '11px' }}>VENDOR / PAYEE NAME</label>
                           <input className="dark-input" placeholder="e.g. Dell Official Store" value={draft.vendor} onChange={e => updateProofDraft(grant.id, 'vendor', e.target.value)} />
                         </div>
                         <div>
-                          <label className="input-label" style={{fontSize:'11px'}}>CATEGORY</label>
+                          <label className="input-label" style={{ fontSize: '11px' }}>CATEGORY</label>
                           <select className="dark-input" value={draft.category} onChange={e => updateProofDraft(grant.id, 'category', e.target.value)}>
                             {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                           </select>
@@ -906,19 +876,18 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                           )}
                         </div>
                         <div>
-                          <label className="input-label" style={{fontSize:'11px'}}>AMOUNT (₹)</label>
+                          <label className="input-label" style={{ fontSize: '11px' }}>AMOUNT (₹)</label>
                           <input className="dark-input" type="number" placeholder="12000" min="1" value={draft.amount} onChange={e => updateProofDraft(grant.id, 'amount', e.target.value)} style={{ borderColor: willExceed ? '#ef4444' : '' }} />
                           {willExceed && <div style={{ color: '#ef4444', fontSize: '10px', marginTop: '4px', fontWeight: '700' }}>⚠️ Exceeds remaining ₹{remainingBudget.toLocaleString()}</div>}
                           {isNegative && <div style={{ color: '#ef4444', fontSize: '10px', marginTop: '4px', fontWeight: '700' }}>⚠️ Amount must be positive</div>}
                         </div>
                         <div className="full-width">
-                          <label className="input-label" style={{fontSize:'11px'}}>GST / TAX ID (Optional)</label>
+                          <label className="input-label" style={{ fontSize: '11px' }}>GST / TAX ID (Optional)</label>
                           <input className="dark-input" placeholder="e.g. 29GGGGG1314R9Z6" value={draft.gst} onChange={e => updateProofDraft(grant.id, 'gst', e.target.value)} />
                         </div>
                       </div>
 
-                      <label className="input-label" style={{fontSize:'11px', marginTop: '8px'}}>UPLOAD RECEIPT (Multiple allowed)</label>
-                      {/* Styled drop zone — wraps hidden file input */}
+                      <label className="input-label" style={{ fontSize: '11px', marginTop: '8px' }}>UPLOAD RECEIPT (Multiple allowed)</label>
                       <label htmlFor={`file-drop-${grant.id}`} style={{
                         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                         gap: '8px', padding: '22px 16px', marginBottom: '14px',
@@ -928,9 +897,9 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                         cursor: 'pointer', transition: 'all 0.2s ease',
                         ':hover': { borderColor: 'var(--accent-blue)' },
                       }}
-                      onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--accent-blue)'; e.currentTarget.style.background = 'rgba(79,156,249,0.06)'; }}
-                      onDragLeave={e => { e.currentTarget.style.borderColor = draft.images?.length > 0 ? 'var(--accent-blue)' : 'var(--border-subtle)'; e.currentTarget.style.background = draft.images?.length > 0 ? 'rgba(79,156,249,0.04)' : 'var(--bg-input)'; }}
-                      onDrop={e => { e.preventDefault(); handleProofImages(grant.id, e.dataTransfer.files); e.currentTarget.style.borderColor = 'var(--accent-blue)'; }}
+                        onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--accent-blue)'; e.currentTarget.style.background = 'rgba(79,156,249,0.06)'; }}
+                        onDragLeave={e => { e.currentTarget.style.borderColor = draft.images?.length > 0 ? 'var(--accent-blue)' : 'var(--border-subtle)'; e.currentTarget.style.background = draft.images?.length > 0 ? 'rgba(79,156,249,0.04)' : 'var(--bg-input)'; }}
+                        onDrop={e => { e.preventDefault(); handleProofImages(grant.id, e.dataTransfer.files); e.currentTarget.style.borderColor = 'var(--accent-blue)'; }}
                       >
                         <motion.div
                           animate={{ y: [0, -4, 0] }}
@@ -945,7 +914,7 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>JPG, PNG, PDF · Max 5MB each</div>
                         <input id={`file-drop-${grant.id}`} type="file" accept="image/jpeg, image/png, application/pdf" multiple onChange={e => handleProofImages(grant.id, e.target.files)} style={{ display: 'none' }} />
                       </label>
-                      
+
                       {draft.images?.length > 0 && (
                         <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', marginBottom: '16px' }}>
                           {draft.images.map((src, i) => {
@@ -969,7 +938,7 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                           })}
                         </div>
                       )}
-                      
+
                       <button className="neon-btn neon-blue" style={{ width: 'auto', padding: '10px 24px', fontSize: '14px', opacity: canSave ? 1 : 0.5, pointerEvents: canSave ? 'auto' : 'none' }} onClick={() => addExpenseEntry(grant.id)}>
                         💾 Save Ledger Entry
                       </button>
@@ -985,7 +954,6 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
 
                 {isReview && (
                   <div style={{ position: 'relative', padding: '20px', textAlign: 'center', color: 'var(--accent-yellow)', fontWeight: '700', background: 'var(--bg-warn-panel)', borderRadius: '12px', border: '1px solid var(--border-warn-panel)', overflow: 'hidden' }}>
-                    {/* Shimmer sweep */}
                     <motion.div
                       animate={{ x: ['-120%', '120%'] }}
                       transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut', repeatDelay: 1.2 }}
@@ -995,7 +963,6 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                         pointerEvents: 'none',
                       }}
                     />
-                    {/* Pulsing dot */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '6px' }}>
                       <motion.div
                         animate={{ scale: [1, 1.4, 1], opacity: [1, 0.5, 1] }}
@@ -1042,7 +1009,7 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
               </defs>
               <rect x="0" y="0" width="100%" height="100%" rx="16" ry="16" fill="none" stroke="url(#apply-grad)" strokeWidth="4" strokeLinecap="round" pathLength="100" strokeDasharray="25 75" className="svg-border-trace" />
             </svg>
-            
+
             <div style={{ position: 'relative', zIndex: 1, background: 'var(--bg-surface)', borderRadius: '14px', padding: '30px' }}>
               {reapplyFrom && (
                 <div className="bg-info-panel" style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1109,7 +1076,6 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                 </motion.div>
               )}
 
-              {/* Toggle switch for bypass */}
               <div
                 onClick={() => setBypassMode(!bypassMode)}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px', padding: '14px 18px', background: 'var(--bg-warn-panel)', borderRadius: '10px', border: '1px solid var(--border-warn-panel)', cursor: 'pointer', userSelect: 'none' }}
@@ -1117,7 +1083,6 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                 <label style={{ fontSize: '14px', color: 'var(--accent-yellow)', cursor: 'pointer', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   🔓 Bypass Validation
                 </label>
-                {/* Pill toggle */}
                 <div style={{
                   width: '44px', height: '24px', borderRadius: '12px', position: 'relative',
                   background: bypassMode ? 'var(--accent-yellow)' : 'var(--bg-elevated)',
@@ -1138,7 +1103,6 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                 </div>
               </div>
 
-              {/* Gradient submit button — disabled when form invalid */}
               <motion.button
                 whileHover={{ scale: applyFormValid ? 1.02 : 1, boxShadow: applyFormValid ? '0 8px 32px rgba(37,99,235,0.45)' : 'none' }}
                 whileTap={{ scale: applyFormValid ? 0.98 : 1 }}
@@ -1160,7 +1124,6 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                   transition: 'all 0.2s ease',
                 }}
               >
-                {/* Shine on hover */}
                 <motion.div
                   initial={{ x: '-100%', opacity: 0 }}
                   whileHover={{ x: '100%', opacity: 1 }}
@@ -1176,9 +1139,9 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
 
         {activeTab === 'history' && (
           <div className="glass-card">
-            <h3 style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '18px', marginBottom: '20px', color: 'var(--text-heading)', fontWeight: '800', fontSize:'22px' }}>📂 Request History</h3>
+            <h3 style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '18px', marginBottom: '20px', color: 'var(--text-heading)', fontWeight: '800', fontSize: '22px' }}>📂 Request History</h3>
             {myGrants.length === 0 ? (
-              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '50px', fontSize:'16px' }}>
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '50px', fontSize: '16px' }}>
                 No records yet.
                 <button className="neon-btn" style={{ width: 'auto', marginTop: '20px', padding: '12px 28px', display: 'block', margin: '20px auto 0' }} onClick={() => setActiveTab('apply')}>Submit First Application</button>
               </div>
@@ -1214,20 +1177,13 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                           className="table-row"
                           style={{ borderLeft: `3px solid ${rowBorder}`, background: rowBg }}
                         >
-                          {/* Date */}
                           <td style={{ padding: '16px 14px 16px 16px', color: 'var(--text-muted)', fontSize: '13px', whiteSpace: 'nowrap' }}>{g.date}</td>
-
-                          {/* Category tag */}
                           <td style={{ padding: '16px 14px' }}>
                             <span className={`category-tag ${getTagClass(g.type)}`}>{g.type}</span>
                           </td>
-
-                          {/* Requested amount */}
                           <td style={{ padding: '16px 14px', fontWeight: '700', color: 'var(--text-primary)', fontFamily: 'DM Serif Display, serif', fontSize: '16px' }}>
                             ₹{g.amount.toLocaleString()}
                           </td>
-
-                          {/* Disbursed + mini bar */}
                           <td style={{ padding: '16px 14px', minWidth: '110px' }}>
                             <div style={{ color: disbursed > 0 ? 'var(--accent-green)' : 'var(--text-muted)', fontWeight: '700', fontSize: '14px', marginBottom: '5px' }}>
                               {disbursed > 0 ? `₹${disbursed.toLocaleString()}` : '—'}
@@ -1245,8 +1201,6 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                             )}
                             {pct > 0 && <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '3px', fontWeight: '600' }}>{pct}% released</div>}
                           </td>
-
-                          {/* Status + note */}
                           <td style={{ padding: '16px 14px' }}>
                             <span className={`status-badge status-${isApproved ? 'Approved' : isRejected ? 'Rejected' : 'Pending'}`}>{g.status}</span>
                             {g.status === 'Blocked' && <div style={{ marginTop: '5px', fontSize: '11px', color: '#ef4444', fontWeight: '700' }}>⚠️ Under Investigation</div>}
@@ -1256,8 +1210,6 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                               </div>
                             )}
                           </td>
-
-                          {/* Actions */}
                           <td style={{ padding: '16px 14px' }}>
                             <div style={{ display: 'flex', gap: '7px', flexWrap: 'wrap' }}>
                               {g.status === 'Pending' && (
@@ -1299,7 +1251,7 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
             <motion.div className="glass-modal-content" initial={{ scale: 0.9 }} animate={{ scale: 1 }} style={{ maxWidth: '600px', textAlign: 'center' }}>
               <h3 style={{ color: 'var(--text-heading)', margin: '0 0 16px 0' }}>✂️ Freeform Crop</h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '20px' }}>Drag the edges to select exactly what you want to keep.</p>
-              
+
               <div style={{ background: '#000', padding: '10px', borderRadius: '8px', marginBottom: '20px' }}>
                 <ReactCrop crop={crop} onChange={c => setCrop(c)} onComplete={c => setCompletedCrop(c)}>
                   <img ref={imgRef} src={cropModal.src} alt="Upload" style={{ maxHeight: '50vh', objectFit: 'contain' }} />
@@ -1317,23 +1269,23 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
 
       <AnimatePresence>
         {enlargedImage && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="modal-overlay" style={{zIndex:9999,cursor:'zoom-out'}} onClick={()=>setEnlargedImage(null)}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="modal-overlay" style={{ zIndex: 9999, cursor: 'zoom-out' }} onClick={() => setEnlargedImage(null)}>
             {enlargedImage.startsWith('data:application/pdf') ? (
               <iframe src={enlargedImage} style={{ width: '80vw', height: '85vh', borderRadius: '12px', border: 'none', background: '#fff' }} title="PDF Preview" onClick={e => e.stopPropagation()} />
             ) : (
-              <img src={enlargedImage} alt="" style={{maxHeight:'90vh',maxWidth:'90vw',borderRadius:'12px',boxShadow:'0 0 40px rgba(0,0,0,0.8)'}} onClick={e => e.stopPropagation()} />
+              <img src={enlargedImage} alt="" style={{ maxHeight: '90vh', maxWidth: '90vw', borderRadius: '12px', boxShadow: '0 0 40px rgba(0,0,0,0.8)' }} onClick={e => e.stopPropagation()} />
             )}
-            <button onClick={()=>setEnlargedImage(null)} style={{position:'absolute',top:'18px',right:'24px',background:'none',border:'none',color:'white',fontSize:'38px',cursor:'pointer'}}>×</button>
+            <button onClick={() => setEnlargedImage(null)} style={{ position: 'absolute', top: '18px', right: '24px', background: 'none', border: 'none', color: 'white', fontSize: '38px', cursor: 'pointer' }}>×</button>
           </motion.div>
         )}
       </AnimatePresence>
 
       {editingGrant && (() => {
-        const editElig       = getEligibilityInfo(editScore);
-        const editAmtNum     = parseInt(editAmount) || 0;
+        const editElig = getEligibilityInfo(editScore);
+        const editAmtNum = parseInt(editAmount) || 0;
         const editIsNegative = editAmount !== '' && editAmtNum <= 0;
-        const editExceeds    = editAmount !== '' && editAmtNum > 0 && editAmtNum > editElig.limit && editElig.limit > 0;
-        const editValid      = !!(editSource && editAmount && editScore && !editIsNegative && !editExceeds);
+        const editExceeds = editAmount !== '' && editAmtNum > 0 && editAmtNum > editElig.limit && editElig.limit > 0;
+        const editValid = !!(editSource && editAmount && editScore && !editIsNegative && !editExceeds);
 
         return (
           <motion.div className="modal-overlay"
@@ -1344,8 +1296,8 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
               className="glass-modal-content"
               style={{ maxWidth: '500px' }}
               initial={{ scale: 0.93, opacity: 0, y: 20 }}
-              animate={{ scale: 1,    opacity: 1, y: 0  }}
-              exit={{    scale: 0.93, opacity: 0, y: 12 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.93, opacity: 0, y: 12 }}
               transition={{ type: 'spring', stiffness: 340, damping: 28 }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>

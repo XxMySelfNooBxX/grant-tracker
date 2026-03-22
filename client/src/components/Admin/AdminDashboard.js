@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
+import confetti from 'canvas-confetti';
 import jsPDF from 'jspdf';
 import Particles from "react-tsparticles";
 import { loadSlim } from "tsparticles-slim";
@@ -11,7 +12,7 @@ import CountUp from 'react-countup';
 import {
   LayoutDashboard, Zap, Download, ScrollText, CheckCircle, XCircle,
   FileSearch, ShieldAlert, Rocket, Search, AlertTriangle, Clock,
-  User, Eye, EyeOff, Receipt, ShieldCheck, FileText, CheckCircle2,
+  User, Eye, Receipt, ShieldCheck, FileText, CheckCircle2,
   FileSignature, Fingerprint, ScanLine, Building2
 } from 'lucide-react';
 import './AdminDashboard.css';
@@ -65,26 +66,8 @@ const SpringTooltip = ({ text, children }) => {
 };
 
 // ============================================================================
-// SPARKLINE AND COMMAND PALETTE
+// COMMAND PALETTE
 // ============================================================================
-const Sparkline = ({ data = [], width = 100, height = 30, color = "#3b82f6" }) => {
-  if (data.length === 0) return null;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const points = data.map((d, i) => `${(i / (data.length - 1)) * width},${height - ((d - min) / range) * height}`).join(' ');
-
-  return (
-    <svg width={width} height={height} viewBox={`0 -5 ${width} ${height + 10}`} style={{ overflow: 'visible' }}>
-      <motion.polyline
-        fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={points}
-        initial={{ pathLength: 0, opacity: 0 }} animate={{ pathLength: 1, opacity: 1 }} transition={{ duration: 1.5, ease: "easeInOut" }}
-        style={{ filter: `drop-shadow(0 2px 4px ${color}66)` }}
-      />
-    </svg>
-  );
-};
-
 const CommandPalette = ({ show, onClose, actions }) => {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -107,7 +90,7 @@ const CommandPalette = ({ show, onClose, actions }) => {
       if (e.key === 'Enter' && filteredActions[selectedIndex]) {
         e.preventDefault(); filteredActions[selectedIndex].action(); onClose();
       }
-      if (e.key === 'Escape') { e.preventDefault(); onClose(); }
+      // Note: Esc is handled globally now!
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -143,6 +126,110 @@ const CommandPalette = ({ show, onClose, actions }) => {
 };
 
 // ============================================================================
+// HIGH-STAKES MICRO-INTERACTION: "HOLD TO AUTHORIZE" BUTTON
+// ============================================================================
+const HoldToApproveButton = ({ onApprove }) => {
+  const [progress, setProgress] = useState(0);
+  const [status, setStatus] = useState('idle');
+  const [hash, setHash] = useState('');
+  const intervalRef = useRef(null);
+
+  const startHold = (e) => {
+    if (status !== 'idle') return;
+    setStatus('holding');
+    intervalRef.current = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(intervalRef.current);
+          completeAction();
+          return 100;
+        }
+        return prev + 3;
+      });
+    }, 30);
+  };
+
+  const stopHold = () => {
+    if (status === 'holding') {
+      clearInterval(intervalRef.current);
+      setProgress(0);
+      setStatus('idle');
+    }
+  };
+
+  const completeAction = () => {
+    setStatus('authorized');
+    triggerEdgeGlow('Approved');
+
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ['#34d399', '#10b981', '#4f9cf9', '#ffffff'],
+      zIndex: 99999
+    });
+
+    const chars = '0123456789ABCDEF';
+    let fakeHash = '0x';
+    for (let i = 0; i < 14; i++) fakeHash += chars[Math.floor(Math.random() * chars.length)];
+
+    setTimeout(() => {
+      setStatus('sealing');
+      setHash(fakeHash);
+
+      setTimeout(() => {
+        onApprove();
+      }, 1200);
+    }, 500);
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', width: '220px' }}>
+      <motion.button
+        onPointerDown={startHold}
+        onPointerUp={stopHold}
+        onPointerLeave={stopHold}
+        whileHover={status === 'idle' ? { scale: 1.02 } : {}}
+        whileTap={status === 'idle' ? { scale: 0.98 } : {}}
+        style={{
+          position: 'relative', overflow: 'hidden', width: '100%', padding: '8px 12px', borderRadius: '8px',
+          background: status === 'authorized' || status === 'sealing' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(52, 211, 153, 0.15)',
+          border: `1px solid ${status === 'authorized' || status === 'sealing' ? '#10b981' : 'rgba(52, 211, 153, 0.4)'}`,
+          color: 'var(--accent-green)',
+          boxShadow: status === 'authorized' || status === 'sealing' ? '0 0 20px rgba(16, 185, 129, 0.4)' : 'none',
+          cursor: status === 'idle' ? 'pointer' : 'default',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+          fontFamily: 'DM Sans', fontWeight: '700', fontSize: '11px', textTransform: 'uppercase',
+          transition: 'all 0.2s', touchAction: 'none'
+        }}
+      >
+        {status === 'holding' && (
+          <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: `${progress}%`, background: 'rgba(52, 211, 153, 0.3)', zIndex: 0 }} />
+        )}
+
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {status === 'idle' && <><CheckCircle size={14} /> Hold to Approve</>}
+          {status === 'holding' && <><CheckCircle size={14} /> Approving... {Math.round(progress)}%</>}
+          {(status === 'authorized' || status === 'sealing') && <><CheckCircle2 size={14} /> Sealed & Approved</>}
+        </div>
+      </motion.button>
+
+      <AnimatePresence>
+        {status === 'sealing' && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+            style={{ fontSize: '10px', fontFamily: 'monospace', color: 'var(--accent-green)', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            <ShieldCheck size={10} /> TXN: {hash}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+
+// ============================================================================
 // SKELETON LOADERS
 // ============================================================================
 const SkeletonCard = () => (
@@ -172,9 +259,9 @@ const SkeletonRow = () => (
   </div>
 );
 
-const BAR_MAX_H = 240;   // fixed pixel height — tallest bar fills this exactly
-const LABEL_H = 28;    // px strip below baseline for x-axis names
-const Y_LABEL_W = 46;    // px strip left of bars for y-axis labels
+const BAR_MAX_H = 240;
+const LABEL_H = 28;
+const Y_LABEL_W = 46;
 
 const FramerBarChart = ({ data, isDarkMode }) => {
   const max = Math.max(...data.map(d => d.amount), 10);
@@ -188,6 +275,7 @@ const FramerBarChart = ({ data, isDarkMode }) => {
 
   return (
     <div style={{ display: 'flex', height: `${CANVAS_H}px`, marginTop: '16px', userSelect: 'none' }}>
+
       <div style={{ width: `${Y_LABEL_W}px`, flexShrink: 0, position: 'relative' }}>
         {yTicks.map(t => (
           <div key={t} style={{
@@ -205,6 +293,7 @@ const FramerBarChart = ({ data, isDarkMode }) => {
           </div>
         ))}
       </div>
+
       <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
         {yTicks.filter(t => t > 0).map(t => (
           <div key={t} style={{
@@ -212,7 +301,9 @@ const FramerBarChart = ({ data, isDarkMode }) => {
             left: 0, right: 0,
             bottom: LABEL_H + t * BAR_MAX_H,
             height: 0,
-            borderTop: t === 1 ? '1px solid rgba(255,255,255,0.08)' : '1px dashed rgba(255,255,255,0.05)',
+            borderTop: t === 1
+              ? '1px solid rgba(255,255,255,0.08)'
+              : '1px dashed rgba(255,255,255,0.05)',
             pointerEvents: 'none',
             zIndex: 0,
           }} />
@@ -353,7 +444,6 @@ const FramerBarChart = ({ data, isDarkMode }) => {
   );
 };
 
-
 const FramerDonutChart = ({ data }) => {
   const entries = Object.entries(data);
   const total = entries.reduce((s, [_, val]) => s + val, 0);
@@ -432,6 +522,7 @@ const FramerDonutChart = ({ data }) => {
             />
           ))}
         </svg>
+
         <div style={{ position: 'absolute', textAlign: 'center', pointerEvents: 'none' }}>
           {hoveredIdx !== null ? (
             <motion.div key={hoveredIdx} initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.15 }}>
@@ -457,6 +548,7 @@ const FramerDonutChart = ({ data }) => {
           )}
         </div>
       </div>
+
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '12px', marginTop: '14px' }}>
         {segments.map((seg, i) => (
           <div key={seg.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: hoveredIdx === i ? seg.color : 'var(--text-secondary)', fontWeight: hoveredIdx === i ? '700' : '600', transition: 'color 0.15s' }}>
@@ -558,7 +650,6 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
   const [otpTargetGrant, setOtpTargetGrant] = useState(null);
   const [otpInput, setOtpInput] = useState('');
   const [otpError, setOtpError] = useState('');
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [otpTimeLeft, setOtpTimeLeft] = useState(300);
 
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -574,6 +665,50 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
   const listRef = useRef(null);
+
+  // ============================================================================
+  // ✨ GLOBAL ESCAPE KEY LISTENER (Smart Modal & Image Closing)
+  // ============================================================================
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        if (enlargedImage) {
+          setEnlargedImage(null);
+        } else if (showCommandPalette) {
+          setShowCommandPalette(false);
+        } else if (showOtpModal) {
+          setShowOtpModal(false);
+          setOtpTargetGrant(null);
+          setOtpInput('');
+          setOtpError('');
+        } else if (rejectTarget) {
+          setRejectTarget(null);
+          setRejectNote('');
+        } else if (showBulkReject) {
+          setShowBulkReject(false);
+        } else if (viewingGrant) {
+          setViewingGrant(null);
+          setXrayMode(false);
+        } else if (viewingApplication) {
+          setViewingApplication(null);
+        } else if (viewingImpact) {
+          setViewingImpact(null);
+        } else if (historyApplicant) {
+          setHistoryApplicant(null);
+        } else if (showLogs) {
+          setShowLogs(false);
+        } else if (showExportPanel) {
+          setShowExportPanel(false);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [
+    enlargedImage, showCommandPalette, showOtpModal, rejectTarget, showBulkReject,
+    viewingGrant, viewingApplication, viewingImpact, historyApplicant, showLogs, showExportPanel
+  ]);
 
   useEffect(() => {
     let interval = null;
@@ -682,8 +817,6 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
     axios.post(`${API}/update-status`, { id, status: newStatus, actionBy: currentUser, note, otp: otpCode, adminEmail })
       .then(() => {
         fetchGrants(); setViewingGrant(null); setRejectTarget(null); setRejectNote(''); setShowOtpModal(false); setOtpInput(''); setOtpError(''); setXrayMode(false);
-        toast.success(`Grant status updated to ${newStatus}`);
-        if (newStatus.includes('Approved') || newStatus.includes('Disbursed') || newStatus.includes('Review')) triggerEdgeGlow('Approved');
       })
       .catch(err => {
         if (newStatus === 'Fully Disbursed') setOtpError(err.response?.data?.message || 'Invalid OTP');
@@ -703,11 +836,9 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
   };
 
   const initiateVaultRelease = (grant) => {
-    setIsSendingOtp(true);
     const adminEmail = localStorage.getItem('currentUserEmail') || 'shauryacocid@gmail.com';
     const promise = axios.post(`${API}/generate-otp`, { adminEmail })
       .then(() => { setOtpTargetGrant(grant); setShowOtpModal(true); setOtpError(''); setOtpInput(''); setViewingGrant(null); setOtpTimeLeft(300); })
-      .finally(() => setIsSendingOtp(false));
     toast.promise(promise, { loading: 'Securing Vault Connection...', success: 'OTP Sent to your verified email', error: 'Failed to initialize Vault.' });
   };
 
@@ -936,14 +1067,15 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
                 <AnimatePresence mode="popLayout">
                   {initialLoad ? (
                     <>
-                      <motion.li key="sk1" className="history-item"><SkeletonRow /></motion.li>
-                      <motion.li key="sk2" className="history-item"><SkeletonRow /></motion.li>
-                      <motion.li key="sk3" className="history-item"><SkeletonRow /></motion.li>
+                      <motion.li key="sk1" className="history-item" layout><SkeletonRow /></motion.li>
+                      <motion.li key="sk2" className="history-item" layout><SkeletonRow /></motion.li>
+                      <motion.li key="sk3" className="history-item" layout><SkeletonRow /></motion.li>
                     </>
                   ) : processedGrants.length === 0 ? (
                     <motion.li
                       initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.96 }}
+                      layout
                       className="history-item glass-card"
                       style={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', textAlign: 'center', borderStyle: 'dashed', borderColor: 'var(--border-subtle)', background: 'rgba(255,255,255,0.01)' }}
                     >
@@ -976,8 +1108,25 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
                     return (
                       <motion.li
                         key={g.id}
+                        layout /* MAGIC LAYOUT FOR SMOOTH REORDERING */
                         initial={isRevealed ? { opacity: 1, y: 0 } : { opacity: 0, y: 25 }}
                         animate={isRevealed ? { opacity: 1, y: 0 } : undefined}
+
+                        /* ✨ THE MAGIC INBOX ZERO ANIMATION ✨ */
+                        exit={{
+                          opacity: 0,
+                          scale: 0.95,
+                          height: 0,
+                          paddingTop: 0,
+                          paddingBottom: 0,
+                          marginBottom: 0,
+                          borderWidth: 0,
+                          backgroundColor: 'rgba(16, 185, 129, 0.3)', /* Flashes Green */
+                          x: 50, /* Sweeps off to the right */
+                          transition: { duration: 0.4, ease: "anticipate" }
+                        }}
+                        /* ----------------------------------- */
+
                         whileInView={i > 0 ? { opacity: 1, y: 0 } : undefined}
                         onViewportEnter={i > 0 ? () => {
                           setRevealedGrantIds(prev => {
@@ -1041,11 +1190,9 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
                           </SpringTooltip>
 
                           {g.status === 'Pending' && (<>
-                            <SpringTooltip text="Approve initial 35% funding">
-                              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="action-btn btn-approve" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => updateStatus(g.id, 'Phase 1 Approved')}><CheckCircle size={14} /> Approve Phase 1</motion.button>
-                            </SpringTooltip>
+                            <HoldToApproveButton onApprove={() => updateStatus(g.id, 'Phase 1 Approved')} />
                             <SpringTooltip text="Decline and close application">
-                              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="action-btn btn-reject" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => { setRejectTarget(g); setRejectNote(''); }}><XCircle size={14} /> Reject</motion.button>
+                              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="action-btn btn-reject" style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '100%' }} onClick={() => { setRejectTarget(g); setRejectNote(''); }}><XCircle size={14} /> Reject</motion.button>
                             </SpringTooltip>
                           </>)}
 
@@ -1102,71 +1249,79 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
                     Live sync active
                   </motion.div>
                 </motion.div>
-              ) : actionQueue.map((g, i) => {
-                const risk = getRisk(g.creditScore);
-                const urgent = g.waitDays > 5;
-                const hasFraudAlert = g.proofs?.some(p => p.forensics?.some(f => f.status === 'FLAGGED'));
+              ) : (
+                <ul className="history-list dark-scroll">
+                  <AnimatePresence mode="popLayout">
+                    {actionQueue.map((g, i) => {
+                      const risk = getRisk(g.creditScore);
+                      const urgent = g.waitDays > 5;
+                      const hasFraudAlert = g.proofs?.some(p => p.forensics?.some(f => f.status === 'FLAGGED'));
 
-                return (
-                  <motion.div key={g.id}
-                    className={`glass-card ${hasFraudAlert ? 'queue-card-forensic' : urgent ? 'queue-card-urgent' : g.waitDays > 3 ? 'queue-card-warning' : ''}`}
-                    style={{ borderLeft: `4px solid ${hasFraudAlert ? '#ef4444' : urgent ? '#f87171' : g.status === 'Awaiting Review' ? '#f97316' : g.status === 'Blocked' ? '#b91c1c' : '#fbbf24'}`, marginBottom: '14px', position: 'relative', overflow: 'hidden' }}
-                    initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.12, type: 'spring', stiffness: 200, damping: 20 }}>
-                    <div className={`queue-wait-watermark${urgent ? ' urgent' : ''}`}>{g.waitDays}d</div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                          <span className={`category-tag ${STANDARD_TYPES.includes(g.type) ? `cat-${g.type}` : 'cat-Other'}`}>{g.type}</span>
-                          <strong style={{ color: 'var(--text-primary)', fontSize: '15px', cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: '3px', textDecorationColor: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => setHistoryApplicant(g.source)}><User size={14} /> {g.source}</strong>
+                      return (
+                        <motion.li key={g.id}
+                          layout
+                          exit={{
+                            opacity: 0, scale: 0.95, height: 0, paddingTop: 0, paddingBottom: 0, marginBottom: 0, borderWidth: 0, backgroundColor: 'rgba(16, 185, 129, 0.3)', x: 50, transition: { duration: 0.4, ease: "anticipate" }
+                          }}
+                          className={`glass-card history-item ${hasFraudAlert ? 'queue-card-forensic' : urgent ? 'queue-card-urgent' : g.waitDays > 3 ? 'queue-card-warning' : ''}`}
+                          style={{ borderLeft: `4px solid ${hasFraudAlert ? '#ef4444' : urgent ? '#f87171' : g.status === 'Awaiting Review' ? '#f97316' : g.status === 'Blocked' ? '#b91c1c' : '#fbbf24'}`, marginBottom: '14px', position: 'relative', overflow: 'hidden', display: 'block' }}
+                          initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.12, type: 'spring', stiffness: 200, damping: 20 }}>
+                          <div className={`queue-wait-watermark${urgent ? ' urgent' : ''}`}>{g.waitDays}d</div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                                <span className={`category-tag ${STANDARD_TYPES.includes(g.type) ? `cat-${g.type}` : 'cat-Other'}`}>{g.type}</span>
+                                <strong style={{ color: 'var(--text-primary)', fontSize: '15px', cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: '3px', textDecorationColor: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => setHistoryApplicant(g.source)}><User size={14} /> {g.source}</strong>
 
-                          {g.strikes > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', background: g.strikes >= 3 ? '#7f1d1d' : '#9a3412', color: 'white', fontSize: '10px', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}><AlertTriangle size={10} /> {g.strikes}/3 STRIKES</span>}
+                                {g.strikes > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', background: g.strikes >= 3 ? '#7f1d1d' : '#9a3412', color: 'white', fontSize: '10px', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}><AlertTriangle size={10} /> {g.strikes}/3 STRIKES</span>}
 
-                          <span className="risk-badge" style={{ background: risk.bg, color: risk.color, border: `1px solid ${risk.color}30` }}><span className="risk-dot" style={{ background: risk.dot }}></span>{risk.label}</span>
-                        </div>
-                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>₹{g.amount.toLocaleString()} · Applied {g.date}</div>
-                        <div style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                <span className="risk-badge" style={{ background: risk.bg, color: risk.color, border: `1px solid ${risk.color}30` }}><span className="risk-dot" style={{ background: risk.dot }}></span>{risk.label}</span>
+                              </div>
+                              <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>₹{g.amount.toLocaleString()} · Applied {g.date}</div>
+                              <div style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
 
-                          {hasFraudAlert ? (
-                            <span className="forensic-alert" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '800', padding: '4px 12px', borderRadius: '10px' }}><ShieldAlert size={12} /> FORENSIC FLAG</span>
-                          ) : (
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '800', padding: '3px 10px', borderRadius: '10px', background: urgent ? 'rgba(248,113,113,0.15)' : 'rgba(251,191,36,0.12)', color: urgent ? '#f87171' : '#fcd34d', border: `1px solid ${urgent ? 'rgba(248,113,113,0.3)' : 'rgba(251,191,36,0.25)'}` }}><Clock size={12} /> {g.waitDays}d waiting</span>
-                          )}
-                          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Status: <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{g.status}</span></span>
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
-                        <SpringTooltip text="View full application details">
-                          <motion.button
-                            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                            className="action-btn"
-                            style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(79,156,249,0.08)', color: 'var(--accent-blue)', border: '1px solid rgba(79,156,249,0.2)' }}
-                            onClick={() => setViewingApplication(g)}
-                          >
-                            <FileText size={14} /> View Application
-                          </motion.button>
-                        </SpringTooltip>
-                        {g.status === 'Pending' && (<>
-                          <SpringTooltip text="Approve initial 35% funding">
-                            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="action-btn btn-approve" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => updateStatus(g.id, 'Phase 1 Approved')}><CheckCircle size={14} /> Approve Phase 1</motion.button>
-                          </SpringTooltip>
-                          <SpringTooltip text="Decline and close application">
-                            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="action-btn btn-reject" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => { setRejectTarget(g); setRejectNote(''); }}><XCircle size={14} /> Reject</motion.button>
-                          </SpringTooltip>
-                        </>)}
+                                {hasFraudAlert ? (
+                                  <span className="forensic-alert" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '800', padding: '4px 12px', borderRadius: '10px' }}><ShieldAlert size={12} /> FORENSIC FLAG</span>
+                                ) : (
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '800', padding: '3px 10px', borderRadius: '10px', background: urgent ? 'rgba(248,113,113,0.15)' : 'rgba(251,191,36,0.12)', color: urgent ? '#f87171' : '#fcd34d', border: `1px solid ${urgent ? 'rgba(248,113,113,0.3)' : 'rgba(251,191,36,0.25)'}` }}><Clock size={12} /> {g.waitDays}d waiting</span>
+                                )}
+                                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Status: <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{g.status}</span></span>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+                              <SpringTooltip text="View full application details">
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                                  className="action-btn"
+                                  style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(79,156,249,0.08)', color: 'var(--accent-blue)', border: '1px solid rgba(79,156,249,0.2)' }}
+                                  onClick={() => setViewingApplication(g)}
+                                >
+                                  <FileText size={14} /> View Application
+                                </motion.button>
+                              </SpringTooltip>
+                              {g.status === 'Pending' && (<>
+                                <HoldToApproveButton onApprove={() => updateStatus(g.id, 'Phase 1 Approved')} />
+                                <SpringTooltip text="Decline and close application">
+                                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="action-btn btn-reject" style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '100%' }} onClick={() => { setRejectTarget(g); setRejectNote(''); }}><XCircle size={14} /> Reject</motion.button>
+                                </SpringTooltip>
+                              </>)}
 
-                        {(g.status === 'Awaiting Review' || g.status === 'Blocked') && (
-                          <SpringTooltip text={g.status === 'Blocked' ? "Open case file and internal notes" : "Analyze receipts & metadata"}>
-                            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="neon-btn neon-blue" style={{ width: 'auto', padding: '8px 18px', fontSize: '12px', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setViewingGrant(g)}>
-                              {g.status === 'Blocked' ? <><ShieldAlert size={14} /> Investigate Case</> : <><FileSearch size={14} /> Review Proof</>}
-                            </motion.button>
-                          </SpringTooltip>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
+                              {(g.status === 'Awaiting Review' || g.status === 'Blocked') && (
+                                <SpringTooltip text={g.status === 'Blocked' ? "Open case file and internal notes" : "Analyze receipts & metadata"}>
+                                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="neon-btn neon-blue" style={{ width: 'auto', padding: '8px 18px', fontSize: '12px', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setViewingGrant(g)}>
+                                    {g.status === 'Blocked' ? <><ShieldAlert size={14} /> Investigate Case</> : <><FileSearch size={14} /> Review Proof</>}
+                                  </motion.button>
+                                </SpringTooltip>
+                              )}
+                            </div>
+                          </div>
+                        </motion.li>
+                      );
+                    })}
+                  </AnimatePresence>
+                </ul>
+              )}
             </motion.div>
           </motion.div>)}
         </AnimatePresence>
@@ -1182,6 +1337,7 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
         <button onClick={clearSelection} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '20px', cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>×</button>
       </div>
 
+      {/* MODALS */}
       {showOtpModal && otpTargetGrant && (() => {
         const timerColor = otpTimeLeft > 120 ? '#3b82f6' : otpTimeLeft > 60 ? '#f59e0b' : '#ef4444';
         const timerPct = otpTimeLeft / 300;
@@ -1240,6 +1396,16 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
                   value={otpInput}
                   onChange={e => setOtpInput(e.target.value.replace(/[^0-9]/g, ''))}
                   disabled={otpTimeLeft === 0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (otpInput.length === 6 && otpTimeLeft > 0) {
+                        confirmOtpRelease();
+                      } else if (otpInput.length < 6) {
+                        setOtpError("Please enter the full 6-digit OTP first.");
+                      }
+                    }
+                  }}
                   animate={otpError ? { x: [-6, 6, -6, 6, 0] } : {}}
                   transition={{ duration: 0.3 }}
                   style={{ fontSize: '28px', letterSpacing: '12px', textAlign: 'center', fontWeight: '700', padding: '16px', opacity: otpTimeLeft === 0 ? 0.4 : 1, marginBottom: '6px', borderColor: otpError ? 'var(--accent-red)' : otpInput.length === 6 ? 'var(--accent-green)' : undefined }}
@@ -1289,8 +1455,6 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
         </div>
       )}
 
-      {/* ══ MODALS ══════════════════════════════════════════ */}
-
       <AnimatePresence>
         {viewingApplication && (() => {
           const g = viewingApplication;
@@ -1335,7 +1499,7 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
                         Grant Application
                       </div>
                       <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: '12px', marginTop: '2px' }}>
-                        ID #{g.id} · Submitted {g.date}
+                        ID #{String(g.id).split('-')[0]} · Submitted {g.date}
                       </div>
                     </div>
                   </div>
@@ -1460,14 +1624,10 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
 
                   {g.status === 'Pending' && (
                     <div style={{ display: 'flex', gap: '12px', paddingTop: '4px', borderTop: '1px solid var(--border-subtle)' }}>
-                      <motion.button
-                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                        className="neon-btn neon-green"
-                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                        onClick={() => { updateStatus(g.id, 'Phase 1 Approved'); setViewingApplication(null); }}
-                      >
-                        <CheckCircle size={16} /> Approve Phase 1 (35%)
-                      </motion.button>
+                      <HoldToApproveButton onApprove={() => {
+                        updateStatus(g.id, 'Phase 1 Approved');
+                        setViewingApplication(null);
+                      }} />
                       <motion.button
                         whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                         className="action-btn btn-reject"
@@ -1657,17 +1817,31 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
       <AnimatePresence>
         {viewingGrant && (
           <>
-            <motion.div className="drawer-backdrop" onClick={() => setViewingGrant(null)} initial={{ opacity: 0, backdropFilter: 'blur(0px)' }} animate={{ opacity: 1, backdropFilter: 'blur(4px)' }} exit={{ opacity: 0, backdropFilter: 'blur(0px)' }} transition={{ duration: 0.3 }} />
-            <motion.div className="glass-modal-content drawer-content" initial={{ x: '100%', opacity: 0, boxShadow: '-20px 0 50px rgba(0,0,0,0)' }} animate={{ x: 0, opacity: 1, boxShadow: '-20px 0 50px rgba(0,0,0,0.5)' }} exit={{ x: '100%', opacity: 0, boxShadow: '-20px 0 50px rgba(0,0,0,0)' }} transition={{ type: 'spring', damping: 25, stiffness: 220, mass: 0.8 }}>
+            <motion.div
+              style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.6)' }}
+              onClick={() => setViewingGrant(null)}
+              initial={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+              animate={{ opacity: 1, backdropFilter: 'blur(4px)' }}
+              exit={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+              transition={{ duration: 0.3 }}
+            />
 
-              <div style={{ background: viewingGrant.status === 'Blocked' ? 'linear-gradient(135deg,rgba(185,28,28,0.85),rgba(239,68,68,0.7))' : 'linear-gradient(135deg,rgba(4,120,87,0.8),rgba(16,185,129,0.6))', padding: '24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <motion.div
+              style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '100%', maxWidth: '650px', background: 'var(--bg-base)', zIndex: 9999, display: 'flex', flexDirection: 'column', boxShadow: '-10px 0 50px rgba(0,0,0,0.5)', borderLeft: '1px solid var(--border-subtle)' }}
+              initial={{ x: '100%', opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: '100%', opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 220, mass: 0.8 }}
+            >
+
+              <div style={{ background: viewingGrant.status === 'Blocked' ? 'linear-gradient(135deg,rgba(185,28,28,0.85),rgba(239,68,68,0.7))' : 'linear-gradient(135deg,rgba(4,120,87,0.8),rgba(16,185,129,0.6))', padding: '24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                   <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 20px rgba(255,255,255,0.1) inset' }}>
                     {viewingGrant.status === 'Blocked' ? <ShieldAlert size={24} color="white" /> : <FileSearch size={24} color="white" />}
                   </div>
                   <div>
                     <h2 style={{ color: 'white', margin: 0, fontSize: '22px', fontFamily: 'DM Serif Display, serif', letterSpacing: '0.5px' }}>{viewingGrant.status === 'Blocked' ? 'Security Investigation' : 'Proof Verification'}</h2>
-                    <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: '13px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}><Fingerprint size={12} /> Case ID: {viewingGrant.id?.split('-')[0]}</div>
+                    <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: '13px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}><Fingerprint size={12} /> Case ID: {String(viewingGrant.id).split('-')[0]}</div>
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -1792,7 +1966,7 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
                                   <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(4, 15, 10, 0.9)', borderRadius: '12px', border: isFlagged ? '2px solid #ef4444' : '2px solid #10b981', padding: '12px', fontFamily: 'monospace', fontSize: '11px', color: isFlagged ? '#ef4444' : '#10b981', pointerEvents: 'none', zIndex: 10, overflow: 'hidden' }}>
                                     <motion.div animate={{ top: ['0%', '100%'] }} transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }} style={{ position: 'absolute', left: 0, right: 0, height: '3px', background: isFlagged ? '#ef4444' : '#10b981', boxShadow: `0 0 15px ${isFlagged ? '#ef4444' : '#10b981'}` }} />
                                     <strong style={{ borderBottom: '1px dashed', display: 'block', paddingBottom: '6px', marginBottom: '6px', color: 'white' }}>EXIF METADATA SCAN</strong>
-                                    <div style={{ color: 'rgba(255,255,255,0.6)' }}>SIG: {viewingGrant.currentHash?.slice(0, 10)}...</div>
+                                    <div style={{ color: 'rgba(255,255,255,0.6)' }}>SIG: {String(viewingGrant.currentHash || viewingGrant.id).slice(0, 10)}...</div>
                                     <div style={{ marginTop: '8px', color: 'white' }}>EXTRACT:</div>
                                     <div style={{ wordWrap: 'break-word', opacity: 0.9, lineHeight: '1.4', marginTop: '4px' }}>{forensic?.details}</div>
                                     <div style={{ marginTop: 'auto', paddingTop: '8px', fontWeight: '900', fontSize: '14px', borderTop: '1px dashed', display: 'flex', alignItems: 'center', gap: '6px' }}>{isFlagged ? <><AlertTriangle size={14} /> TAMPERED SYSTEM</> : <><CheckCircle size={14} /> CLEAN SYSTEM</>}</div>
@@ -1819,6 +1993,47 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
                   })}
                 </div>
               </div>
+
+              {(viewingGrant.status === 'Pending' || viewingGrant.status === 'Awaiting Review' || viewingGrant.status === 'Blocked') && (
+                <div style={{ padding: '20px 32px', background: 'var(--bg-elevated)', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: '16px', flexShrink: 0 }}>
+                  {viewingGrant.status === 'Pending' && (
+                    <>
+                      <HoldToApproveButton onApprove={() => {
+                        updateStatus(viewingGrant.id, 'Phase 1 Approved');
+                        setViewingGrant(null);
+                      }} />
+                      <motion.button
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                        className="action-btn btn-reject"
+                        style={{ flex: 1, padding: '14px', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                        onClick={() => { setViewingGrant(null); setRejectTarget(viewingGrant); setRejectNote(''); }}
+                      >
+                        <XCircle size={16} /> Reject
+                      </motion.button>
+                    </>
+                  )}
+                  {(viewingGrant.status === 'Awaiting Review' || viewingGrant.status === 'Blocked') && (
+                    <>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                        className="neon-btn neon-green"
+                        style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', fontSize: '15px' }}
+                        onClick={() => initiateVaultRelease(viewingGrant)}
+                      >
+                        <ShieldCheck size={20} /> Authorize Disbursal
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                        className="neon-btn neon-red"
+                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px', padding: '14px' }}
+                        onClick={() => { setViewingGrant(null); setRejectTarget(viewingGrant); setRejectNote(''); }}
+                      >
+                        <ShieldAlert size={18} /> Flag & Block
+                      </motion.button>
+                    </>
+                  )}
+                </div>
+              )}
             </motion.div>
           </>
         )}
@@ -2001,3 +2216,4 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
     </div>
   );
 }
+// END OF FILE

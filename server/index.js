@@ -3,7 +3,7 @@ const exifr = require('exifr');
 const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
-const nodemailer = require('nodemailer'); 
+const nodemailer = require('nodemailer');
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
@@ -13,23 +13,21 @@ app.use(cors());
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
-  }    
   }
 });
 
-let grants    = [];
+let grants = [];
 let auditLogs = [];
-let idCounter  = 1;
+let idCounter = 1;
 let logCounter = 1;
 
 // ── MFA OTP STORAGE ──
-let adminOtps = {}; 
+let adminOtps = {};
 
 // ✨ SPRINT 2: Global Strike Tracker for Blacklist (userId -> strike_count)
-let userStrikes = {}; 
+let userStrikes = {};
 
 // ✨ SPRINT 2: Global File Hash Blacklist (Stores SHA-256 hashes of forged receipts)
 const compromisedImageHashes = new Set();
@@ -52,9 +50,9 @@ const logAction = (admin, action, target, details, targetId = null) => {
   auditLogs.unshift({
     id: logCounter++,
     timestamp: new Date().toLocaleString(),
-    admin:   admin  || 'System',
+    admin: admin || 'System',
     action, target, details,
-    targetId  
+    targetId
   });
 };
 
@@ -62,14 +60,14 @@ const logAction = (admin, action, target, details, targetId = null) => {
 
 // Attach strike count to grants payload for Admin UI
 app.get('/grants', (req, res) => {
-  const enrichedGrants = grants.map(g => ({ 
-    ...g, 
-    strikes: userStrikes[g.userId] || 0 
+  const enrichedGrants = grants.map(g => ({
+    ...g,
+    strikes: userStrikes[g.userId] || 0
   }));
   res.json(enrichedGrants);
 });
 
-app.get('/logs',   (req, res) => res.json(auditLogs));
+app.get('/logs', (req, res) => res.json(auditLogs));
 
 // ADD GRANT
 app.post('/add-grant', (req, res) => {
@@ -85,7 +83,7 @@ app.post('/add-grant', (req, res) => {
   if (isDuplicate)
     return res.status(400).json({ error: true, message: `DUPLICATE DETECTED: You already have a Pending request for ${type}.` });
 
-  const reqAmount   = parseInt(amount);
+  const reqAmount = parseInt(amount);
   const serverLimit = getCreditLimit(creditScore);
   if (reqAmount > serverLimit) {
     logAction('Security Bot', 'BLOCKED', source, `Attempted ₹${reqAmount} with score ${creditScore}`);
@@ -110,20 +108,20 @@ app.post('/add-grant', (req, res) => {
 app.post('/edit-grant', (req, res) => {
   const { id, source, amount, creditScore, type } = req.body;
   const grant = grants.find(g => g.id === id);
-  if (!grant)                        return res.status(404).json({ message: 'Grant not found' });
-  if (grant.status !== 'Pending')    return res.status(400).json({ message: 'Only Pending grants can be edited.' });
+  if (!grant) return res.status(404).json({ message: 'Grant not found' });
+  if (grant.status !== 'Pending') return res.status(400).json({ message: 'Only Pending grants can be edited.' });
 
-  const reqAmount   = parseInt(amount);
+  const reqAmount = parseInt(amount);
   const serverLimit = getCreditLimit(creditScore);
   if (reqAmount > serverLimit)
     return res.status(400).json({ message: `Amount exceeds limit of ₹${serverLimit.toLocaleString()} for score ${creditScore}.` });
 
-  grant.source      = source;
-  grant.amount      = reqAmount;
+  grant.source = source;
+  grant.amount = reqAmount;
   grant.creditScore = creditScore;
-  grant.type        = type;
+  grant.type = type;
   grant.previousHash = grant.currentHash;
-  grant.currentHash  = generateHash({ source, amount: reqAmount, creditScore, type, edited: true }, grant.previousHash);
+  grant.currentHash = generateHash({ source, amount: reqAmount, creditScore, type, edited: true }, grant.previousHash);
 
   logAction('Applicant', 'EDITED', source, `Updated grant details (amount: ₹${reqAmount}, type: ${type})`, id);
   res.json({ message: 'Grant updated', grant });
@@ -133,13 +131,13 @@ app.post('/edit-grant', (req, res) => {
 app.post('/cancel-grant', (req, res) => {
   const { id } = req.body;
   const grant = grants.find(g => g.id === id);
-  if (!grant)                     return res.status(404).json({ message: 'Grant not found' });
+  if (!grant) return res.status(404).json({ message: 'Grant not found' });
   if (grant.status !== 'Pending') return res.status(400).json({ message: 'Only Pending grants can be cancelled.' });
 
-  grant.status         = 'Cancelled';
+  grant.status = 'Cancelled';
   grant.disbursedAmount = 0;
-  grant.previousHash   = grant.currentHash;
-  grant.currentHash    = generateHash({ status: 'Cancelled', time: Date.now() }, grant.previousHash);
+  grant.previousHash = grant.currentHash;
+  grant.currentHash = generateHash({ status: 'Cancelled', time: Date.now() }, grant.previousHash);
 
   logAction('Applicant', 'CANCELLED', grant.source, `Application cancelled by applicant`, id);
   res.json({ message: 'Grant cancelled', grant });
@@ -164,7 +162,7 @@ app.post('/add-expense', async (req, res) => {
 
   const forensicReports = await Promise.all(proofImages.map(async (base64Str) => {
     let report = { status: 'CLEAN', details: 'Metadata verified' };
-    
+
     if (base64Str.startsWith('data:application/pdf')) {
       return { status: 'CLEAN', details: '📄 PDF Document' };
     }
@@ -173,7 +171,7 @@ app.post('/add-expense', async (req, res) => {
       const base64Data = base64Str.replace(/^data:image\/\w+;base64,/, "");
       const buffer = Buffer.from(base64Data, 'base64');
       const exifData = await exifr.parse(buffer);
-      
+
       if (!exifData) {
         report = { status: 'FLAGGED', details: '⚠️ Metadata stripped (Possible web download)' };
       } else {
@@ -196,11 +194,11 @@ app.post('/add-expense', async (req, res) => {
     description,
     images: proofImages,
     forensics: forensicReports,
-    finalized: false  
+    finalized: false
   });
 
   grant.previousHash = grant.currentHash;
-  grant.currentHash  = generateHash({ proofCount: grant.proofs.length, desc: description }, grant.previousHash);
+  grant.currentHash = generateHash({ proofCount: grant.proofs.length, desc: description }, grant.previousHash);
 
   logAction('Applicant', 'EXPENSE ADDED', grant.source, `Added expense: "${description}" (Scanned by Forensics Engine)`, grantId);
   res.json(grant);
@@ -210,7 +208,7 @@ app.post('/add-expense', async (req, res) => {
 app.post('/delete-expense', (req, res) => {
   const { grantId, index } = req.body;
   const grant = grants.find(g => g.id === grantId);
-  
+
   if (!grant) return res.status(404).json({ message: 'Grant not found' });
   if (!grant.proofs || index < 0 || index >= grant.proofs.length) {
     return res.status(400).json({ message: 'Invalid expense entry' });
@@ -218,7 +216,7 @@ app.post('/delete-expense', (req, res) => {
 
   const deletedExpense = grant.proofs.splice(index, 1)[0];
   grant.previousHash = grant.currentHash;
-  grant.currentHash  = generateHash({ proofCount: grant.proofs.length, time: Date.now() }, grant.previousHash);
+  grant.currentHash = generateHash({ proofCount: grant.proofs.length, time: Date.now() }, grant.previousHash);
 
   logAction('Applicant', 'DRAFT DELETED', grant.source, `Deleted unsubmitted expense entry.`, grantId);
   res.json({ message: 'Expense deleted successfully', grant });
@@ -236,7 +234,7 @@ app.post('/submit-proof', (req, res) => {
 
   grant.status = 'Awaiting Review';
   grant.previousHash = grant.currentHash;
-  grant.currentHash  = generateHash(grant.proofs, grant.previousHash);
+  grant.currentHash = generateHash(grant.proofs, grant.previousHash);
 
   logAction('System', 'PROOF UPLOADED', grant.source, `Submitted ${grant.proofs.length} expense(s) for Phase 2 review.`, grantId);
   res.json(grant);
@@ -244,12 +242,13 @@ app.post('/submit-proof', (req, res) => {
 
 // GENERATE OTP
 app.post('/generate-otp', (req, res) => {
-  const { adminEmail } = req.body;
+  // ✅ THE FIX: Fallback to your hardcoded admin email if the frontend sends undefined
+  const adminEmail = req.body.adminEmail || 'shauryacocid@gmail.com';
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  
+
   adminOtps[adminEmail] = {
     otp: otp,
-    expires: Date.now() + 5 * 60 * 1000 
+    expires: Date.now() + 5 * 60 * 1000
   };
 
   const mailOptions = {
@@ -271,7 +270,8 @@ app.post('/generate-otp', (req, res) => {
   transporter.sendMail(mailOptions)
     .then(() => res.json({ message: 'OTP Sent successfully' }))
     .catch(err => {
-      console.error(err);
+      // ✅ Added a console log so you can see the EXACT error in your terminal if it fails again!
+      console.error("🔴 NODEMAILER CRASH REASON:", err.message);
       res.status(500).json({ message: 'Failed to send OTP email.' });
     });
 });
@@ -281,10 +281,10 @@ app.post('/add-private-note', (req, res) => {
   const { grantId, text, admin } = req.body;
   const grant = grants.find(g => g.id === grantId);
   if (!grant) return res.status(404).json({ message: 'Grant not found' });
-  
+
   if (!grant.privateNotes) grant.privateNotes = [];
   grant.privateNotes.push({ text, admin, timestamp: new Date().toLocaleString() });
-  
+
   logAction(admin, 'PRIVATE NOTE ADDED', grant.source, 'Added internal investigation note.', grantId);
   res.json(grant);
 });
@@ -302,12 +302,12 @@ app.post('/update-status', (req, res) => {
     const email = grant.userId;
     userStrikes[email] = (userStrikes[email] || 0) + 1; // Increment Strike Counter
     const isBlacklisted = userStrikes[email] >= 3;
-    
+
     grant.status = 'Blocked';
     if (note) grant.note = note;
-    
+
     grant.previousHash = grant.currentHash;
-    grant.currentHash  = generateHash({ status: 'Blocked', note: grant.note, time: Date.now() }, grant.previousHash);
+    grant.currentHash = generateHash({ status: 'Blocked', note: grant.note, time: Date.now() }, grant.previousHash);
 
     // ✨ SPRINT 2: Automated Warning Email Dispatch
     if (email) {
@@ -338,16 +338,16 @@ app.post('/update-status', (req, res) => {
   if (status === 'Rejected' && oldStatus === 'Blocked') {
     let addedHashes = 0;
     grant.proofs.forEach(p => {
-        if (p.images) {
-            p.images.forEach(imgStr => {
-                const h = crypto.createHash('sha256').update(imgStr).digest('hex');
-                compromisedImageHashes.add(h);
-                addedHashes++;
-            });
-        }
+      if (p.images) {
+        p.images.forEach(imgStr => {
+          const h = crypto.createHash('sha256').update(imgStr).digest('hex');
+          compromisedImageHashes.add(h);
+          addedHashes++;
+        });
+      }
     });
     if (addedHashes > 0) {
-        logAction('Security Bot', 'BLACKLISTED FILES', grant.source, `Added ${addedHashes} compromised proofs to global hash blacklist.`, id);
+      logAction('Security Bot', 'BLACKLISTED FILES', grant.source, `Added ${addedHashes} compromised proofs to global hash blacklist.`, id);
     }
   }
 
@@ -364,19 +364,19 @@ app.post('/update-status', (req, res) => {
     if (!validOtpData) return res.status(401).json({ message: 'SECURITY ALERT: No OTP generated or OTP has expired.' });
     if (Date.now() > validOtpData.expires) { delete adminOtps[adminEmail]; return res.status(401).json({ message: 'SECURITY ALERT: OTP has expired. Request a new one.' }); }
     if (validOtpData.otp !== otp) return res.status(401).json({ message: 'SECURITY ALERT: Incorrect OTP provided. Vault remains locked.' });
-    
+
     delete adminOtps[adminEmail];
     grant.disbursedAmount = grant.amount;
   }
 
-  grant.status      = status;
-  grant.actionBy    = actionBy;
+  grant.status = status;
+  grant.actionBy = actionBy;
   if (note !== undefined) grant.note = note;
 
   if (status === 'Phase 1 Approved') {
     grant.disbursedAmount = grant.amount * 0.35;
-    
-    if (grant.userId) { 
+
+    if (grant.userId) {
       const mailOptions = {
         from: '"Grant Administrator" <ss.sepm.project.ss@gmail.com>',
         to: grant.userId,
@@ -399,7 +399,7 @@ app.post('/update-status', (req, res) => {
           </div>
         `
       };
-      
+
       transporter.sendMail(mailOptions).catch(err => console.error(err));
     }
   }
@@ -408,7 +408,7 @@ app.post('/update-status', (req, res) => {
   }
 
   grant.previousHash = grant.currentHash;
-  grant.currentHash  = generateHash({ status, disbursed: grant.disbursedAmount, note: grant.note, time: Date.now() }, grant.previousHash);
+  grant.currentHash = generateHash({ status, disbursed: grant.disbursedAmount, note: grant.note, time: Date.now() }, grant.previousHash);
 
   logAction(actionBy, status.toUpperCase(), grant.source,
     `Changed from ${oldStatus} to ${status}${note ? ` | Note: "${note}"` : ''}`, id);
@@ -422,7 +422,7 @@ app.post('/verify-ledger', (req, res) => {
   if (!grant) return res.status(404).json({ message: 'Grant not found' });
   const ok = grant.currentHash.length === 64;
   res.json(ok
-    ? { verified: true,  message: 'Cryptographic Hash Chain Intact. Data is authentic.' }
+    ? { verified: true, message: 'Cryptographic Hash Chain Intact. Data is authentic.' }
     : { verified: false, message: 'DATA COMPROMISE DETECTED.' });
 });
 
@@ -435,7 +435,7 @@ app.post('/submit-impact', (req, res) => {
   grant.impact = { date: new Date().toLocaleDateString(), outcome, metric: parseInt(metric), link };
   grant.status = 'Evaluated';
   grant.previousHash = grant.currentHash;
-  grant.currentHash  = generateHash(grant.impact, grant.previousHash);
+  grant.currentHash = generateHash(grant.impact, grant.previousHash);
 
   logAction('System', 'IMPACT LOGGED', grant.source, `Final impact evaluated.`, grantId);
   res.json(grant);
@@ -463,21 +463,29 @@ const injectMockData = () => {
     // 4. Phase 1 Approved 
     { source: name2, userId: email2, amount: 20000, type: 'Stipend', status: 'Phase 1 Approved', creditScore: '620', date: '2/20/2026', disbursedAmount: 7000, privateNotes: [], proofs: [] },
     // 5. Awaiting Review (Has Dummy Images Attached!)
-    { source: name1, userId: email1, amount: 45000, type: 'Equipment', status: 'Awaiting Review', creditScore: '760', date: '2/10/2026', disbursedAmount: 15750, privateNotes: [], proofs: [
-      { date: '3/8/2026', description: 'Dell Monitor & Peripherals', images: [dummyImage], forensics: [{status: 'CLEAN', details: '📸 iPhone 15 Pro'}], finalized: true }
-    ]},
+    {
+      source: name1, userId: email1, amount: 45000, type: 'Equipment', status: 'Awaiting Review', creditScore: '760', date: '2/10/2026', disbursedAmount: 15750, privateNotes: [], proofs: [
+        { date: '3/8/2026', description: 'Dell Monitor & Peripherals', images: [dummyImage], forensics: [{ status: 'CLEAN', details: '📸 iPhone 15 Pro' }], finalized: true }
+      ]
+    },
     // 6. Awaiting Review (Fraud Alert Metadata to test red borders!)
-    { source: name2, userId: email2, amount: 12000, type: 'Travel', status: 'Awaiting Review', creditScore: '610', date: '2/28/2026', disbursedAmount: 4200, privateNotes: [], proofs: [
-      { date: '3/9/2026', description: 'Flight Tickets to Conference', images: [dummyImage], forensics: [{status: 'FLAGGED', details: '⚠️ Metadata stripped'}], finalized: true }
-    ]},
+    {
+      source: name2, userId: email2, amount: 12000, type: 'Travel', status: 'Awaiting Review', creditScore: '610', date: '2/28/2026', disbursedAmount: 4200, privateNotes: [], proofs: [
+        { date: '3/9/2026', description: 'Flight Tickets to Conference', images: [dummyImage], forensics: [{ status: 'FLAGGED', details: '⚠️ Metadata stripped' }], finalized: true }
+      ]
+    },
     // 7. Fully Disbursed 
-    { source: name1, userId: email1, amount: 90000, type: 'Research', status: 'Fully Disbursed', creditScore: '850', date: '1/10/2026', disbursedAmount: 90000, privateNotes: [], proofs: [
-      { date: '2/01/2026', description: 'Lab Supplies', images: [dummyImage], forensics: [{status: 'CLEAN', details: '📸 Sony A7III'}], finalized: true }
-    ]},
+    {
+      source: name1, userId: email1, amount: 90000, type: 'Research', status: 'Fully Disbursed', creditScore: '850', date: '1/10/2026', disbursedAmount: 90000, privateNotes: [], proofs: [
+        { date: '2/01/2026', description: 'Lab Supplies', images: [dummyImage], forensics: [{ status: 'CLEAN', details: '📸 Sony A7III' }], finalized: true }
+      ]
+    },
     // 8. Evaluated (Finished Project with Impact Report)
-    { source: name2, userId: email2, amount: 30000, type: 'Equipment', status: 'Evaluated', creditScore: '720', date: '12/05/2025', disbursedAmount: 30000, privateNotes: [], proofs: [
-      { date: '1/15/2026', description: 'Server Rack', images: [dummyImage], forensics: [{status: 'CLEAN', details: '📸 Canon EOS R'}], finalized: true }
-    ], impact: { date: '2/10/2026', outcome: 'Deployed web app successfully', metric: 5000, link: 'https://github.com/project' } },
+    {
+      source: name2, userId: email2, amount: 30000, type: 'Equipment', status: 'Evaluated', creditScore: '720', date: '12/05/2025', disbursedAmount: 30000, privateNotes: [], proofs: [
+        { date: '1/15/2026', description: 'Server Rack', images: [dummyImage], forensics: [{ status: 'CLEAN', details: '📸 Canon EOS R' }], finalized: true }
+      ], impact: { date: '2/10/2026', outcome: 'Deployed web app successfully', metric: 5000, link: 'https://github.com/project' }
+    },
     // 9. Rejected 
     { source: name1, userId: email1, amount: 100000, type: 'Stipend', status: 'Rejected', creditScore: '400', date: '3/7/2026', disbursedAmount: 0, privateNotes: [], proofs: [], note: 'Credit score too low for requested amount.' }
   ];
@@ -492,21 +500,21 @@ const injectMockData = () => {
     grants.push(g);
 
     logAction('System', 'SUBMITTED', g.source, `New ${g.type} grant application for ₹${g.amount}`, g.id);
-    
+
     if (['Phase 1 Approved', 'Awaiting Review', 'Fully Disbursed', 'Evaluated'].includes(g.status)) {
-        logAction('System_Admin', 'PHASE 1 APPROVED', g.source, `Changed from Pending to Phase 1 Approved`, g.id);
+      logAction('System_Admin', 'PHASE 1 APPROVED', g.source, `Changed from Pending to Phase 1 Approved`, g.id);
     }
     if (g.status === 'Rejected') {
-        logAction('System_Admin', 'REJECTED', g.source, `Changed from Pending to Rejected | Note: "${g.note}"`, g.id);
+      logAction('System_Admin', 'REJECTED', g.source, `Changed from Pending to Rejected | Note: "${g.note}"`, g.id);
     }
     if (g.proofs && g.proofs.length > 0) {
-        logAction('Applicant', 'PROOF UPLOADED', g.source, `Submitted ${g.proofs.length} expense(s) for Phase 2 review.`, g.id);
+      logAction('Applicant', 'PROOF UPLOADED', g.source, `Submitted ${g.proofs.length} expense(s) for Phase 2 review.`, g.id);
     }
     if (['Fully Disbursed', 'Evaluated'].includes(g.status)) {
-        logAction('System_Admin', 'FULLY DISBURSED', g.source, `Vault funds released fully.`, g.id);
+      logAction('System_Admin', 'FULLY DISBURSED', g.source, `Vault funds released fully.`, g.id);
     }
     if (g.status === 'Evaluated') {
-        logAction('System', 'IMPACT LOGGED', g.source, `Final impact evaluated.`, g.id);
+      logAction('System', 'IMPACT LOGGED', g.source, `Final impact evaluated.`, g.id);
     }
   });
 
@@ -521,14 +529,14 @@ injectMockData();
 
 
 const server = app.listen(3001, () => {
-    console.log('🚀 Server running and actively listening on port 3001');
+  console.log('🚀 Server running and actively listening on port 3001');
 });
 
 // This will catch any silent crashes (like port conflicts) and print them to the terminal
 server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-        console.error('❌ ERROR: Port 3001 is already in use. Please close any other hidden node terminals.');
-    } else {
-        console.error('❌ SERVER ERROR:', err);
-    }
+  if (err.code === 'EADDRINUSE') {
+    console.error('❌ ERROR: Port 3001 is already in use. Please close any other hidden node terminals.');
+  } else {
+    console.error('❌ SERVER ERROR:', err);
+  }
 });
