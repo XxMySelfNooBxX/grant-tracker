@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
-import confetti from 'canvas-confetti';
 import jsPDF from 'jspdf';
 import Particles from "react-tsparticles";
 import { loadSlim } from "tsparticles-slim";
@@ -90,7 +89,7 @@ const CommandPalette = ({ show, onClose, actions }) => {
       if (e.key === 'Enter' && filteredActions[selectedIndex]) {
         e.preventDefault(); filteredActions[selectedIndex].action(); onClose();
       }
-      // Note: Esc is handled globally now!
+      if (e.key === 'Escape') { e.preventDefault(); onClose(); }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -126,110 +125,6 @@ const CommandPalette = ({ show, onClose, actions }) => {
 };
 
 // ============================================================================
-// HIGH-STAKES MICRO-INTERACTION: "HOLD TO AUTHORIZE" BUTTON
-// ============================================================================
-const HoldToApproveButton = ({ onApprove }) => {
-  const [progress, setProgress] = useState(0);
-  const [status, setStatus] = useState('idle');
-  const [hash, setHash] = useState('');
-  const intervalRef = useRef(null);
-
-  const startHold = (e) => {
-    if (status !== 'idle') return;
-    setStatus('holding');
-    intervalRef.current = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(intervalRef.current);
-          completeAction();
-          return 100;
-        }
-        return prev + 3;
-      });
-    }, 30);
-  };
-
-  const stopHold = () => {
-    if (status === 'holding') {
-      clearInterval(intervalRef.current);
-      setProgress(0);
-      setStatus('idle');
-    }
-  };
-
-  const completeAction = () => {
-    setStatus('authorized');
-    triggerEdgeGlow('Approved');
-
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 },
-      colors: ['#34d399', '#10b981', '#4f9cf9', '#ffffff'],
-      zIndex: 99999
-    });
-
-    const chars = '0123456789ABCDEF';
-    let fakeHash = '0x';
-    for (let i = 0; i < 14; i++) fakeHash += chars[Math.floor(Math.random() * chars.length)];
-
-    setTimeout(() => {
-      setStatus('sealing');
-      setHash(fakeHash);
-
-      setTimeout(() => {
-        onApprove();
-      }, 1200);
-    }, 500);
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', width: '220px' }}>
-      <motion.button
-        onPointerDown={startHold}
-        onPointerUp={stopHold}
-        onPointerLeave={stopHold}
-        whileHover={status === 'idle' ? { scale: 1.02 } : {}}
-        whileTap={status === 'idle' ? { scale: 0.98 } : {}}
-        style={{
-          position: 'relative', overflow: 'hidden', width: '100%', padding: '8px 12px', borderRadius: '8px',
-          background: status === 'authorized' || status === 'sealing' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(52, 211, 153, 0.15)',
-          border: `1px solid ${status === 'authorized' || status === 'sealing' ? '#10b981' : 'rgba(52, 211, 153, 0.4)'}`,
-          color: 'var(--accent-green)',
-          boxShadow: status === 'authorized' || status === 'sealing' ? '0 0 20px rgba(16, 185, 129, 0.4)' : 'none',
-          cursor: status === 'idle' ? 'pointer' : 'default',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-          fontFamily: 'DM Sans', fontWeight: '700', fontSize: '11px', textTransform: 'uppercase',
-          transition: 'all 0.2s', touchAction: 'none'
-        }}
-      >
-        {status === 'holding' && (
-          <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: `${progress}%`, background: 'rgba(52, 211, 153, 0.3)', zIndex: 0 }} />
-        )}
-
-        <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {status === 'idle' && <><CheckCircle size={14} /> Hold to Approve</>}
-          {status === 'holding' && <><CheckCircle size={14} /> Approving... {Math.round(progress)}%</>}
-          {(status === 'authorized' || status === 'sealing') && <><CheckCircle2 size={14} /> Sealed & Approved</>}
-        </div>
-      </motion.button>
-
-      <AnimatePresence>
-        {status === 'sealing' && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-            style={{ fontSize: '10px', fontFamily: 'monospace', color: 'var(--accent-green)', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}
-          >
-            <ShieldCheck size={10} /> TXN: {hash}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
-
-
-// ============================================================================
 // SKELETON LOADERS
 // ============================================================================
 const SkeletonCard = () => (
@@ -259,9 +154,9 @@ const SkeletonRow = () => (
   </div>
 );
 
-const BAR_MAX_H = 240;
-const LABEL_H = 28;
-const Y_LABEL_W = 46;
+const BAR_MAX_H = 240;   // fixed pixel height — tallest bar fills this exactly
+const LABEL_H = 28;    // px strip below baseline for x-axis names
+const Y_LABEL_W = 46;    // px strip left of bars for y-axis labels
 
 const FramerBarChart = ({ data, isDarkMode }) => {
   const max = Math.max(...data.map(d => d.amount), 10);
@@ -275,7 +170,6 @@ const FramerBarChart = ({ data, isDarkMode }) => {
 
   return (
     <div style={{ display: 'flex', height: `${CANVAS_H}px`, marginTop: '16px', userSelect: 'none' }}>
-
       <div style={{ width: `${Y_LABEL_W}px`, flexShrink: 0, position: 'relative' }}>
         {yTicks.map(t => (
           <div key={t} style={{
@@ -293,7 +187,6 @@ const FramerBarChart = ({ data, isDarkMode }) => {
           </div>
         ))}
       </div>
-
       <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
         {yTicks.filter(t => t > 0).map(t => (
           <div key={t} style={{
@@ -301,9 +194,7 @@ const FramerBarChart = ({ data, isDarkMode }) => {
             left: 0, right: 0,
             bottom: LABEL_H + t * BAR_MAX_H,
             height: 0,
-            borderTop: t === 1
-              ? '1px solid rgba(255,255,255,0.08)'
-              : '1px dashed rgba(255,255,255,0.05)',
+            borderTop: t === 1 ? '1px solid rgba(255,255,255,0.08)' : '1px dashed rgba(255,255,255,0.05)',
             pointerEvents: 'none',
             zIndex: 0,
           }} />
@@ -444,6 +335,7 @@ const FramerBarChart = ({ data, isDarkMode }) => {
   );
 };
 
+
 const FramerDonutChart = ({ data }) => {
   const entries = Object.entries(data);
   const total = entries.reduce((s, [_, val]) => s + val, 0);
@@ -522,7 +414,6 @@ const FramerDonutChart = ({ data }) => {
             />
           ))}
         </svg>
-
         <div style={{ position: 'absolute', textAlign: 'center', pointerEvents: 'none' }}>
           {hoveredIdx !== null ? (
             <motion.div key={hoveredIdx} initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.15 }}>
@@ -548,7 +439,6 @@ const FramerDonutChart = ({ data }) => {
           )}
         </div>
       </div>
-
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '12px', marginTop: '14px' }}>
         {segments.map((seg, i) => (
           <div key={seg.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: hoveredIdx === i ? seg.color : 'var(--text-secondary)', fontWeight: hoveredIdx === i ? '700' : '600', transition: 'color 0.15s' }}>
@@ -665,50 +555,8 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
   const listRef = useRef(null);
-
-  // ============================================================================
-  // ✨ GLOBAL ESCAPE KEY LISTENER (Smart Modal & Image Closing)
-  // ============================================================================
-  useEffect(() => {
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') {
-        if (enlargedImage) {
-          setEnlargedImage(null);
-        } else if (showCommandPalette) {
-          setShowCommandPalette(false);
-        } else if (showOtpModal) {
-          setShowOtpModal(false);
-          setOtpTargetGrant(null);
-          setOtpInput('');
-          setOtpError('');
-        } else if (rejectTarget) {
-          setRejectTarget(null);
-          setRejectNote('');
-        } else if (showBulkReject) {
-          setShowBulkReject(false);
-        } else if (viewingGrant) {
-          setViewingGrant(null);
-          setXrayMode(false);
-        } else if (viewingApplication) {
-          setViewingApplication(null);
-        } else if (viewingImpact) {
-          setViewingImpact(null);
-        } else if (historyApplicant) {
-          setHistoryApplicant(null);
-        } else if (showLogs) {
-          setShowLogs(false);
-        } else if (showExportPanel) {
-          setShowExportPanel(false);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleEscape);
-    return () => window.removeEventListener('keydown', handleEscape);
-  }, [
-    enlargedImage, showCommandPalette, showOtpModal, rejectTarget, showBulkReject,
-    viewingGrant, viewingApplication, viewingImpact, historyApplicant, showLogs, showExportPanel
-  ]);
+  const [showFreezeModal, setShowFreezeModal] = useState(false);
+  const [freezeReason, setFreezeReason] = useState('');
 
   useEffect(() => {
     let interval = null;
@@ -817,12 +665,34 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
     axios.post(`${API}/update-status`, { id, status: newStatus, actionBy: currentUser, note, otp: otpCode, adminEmail })
       .then(() => {
         fetchGrants(); setViewingGrant(null); setRejectTarget(null); setRejectNote(''); setShowOtpModal(false); setOtpInput(''); setOtpError(''); setXrayMode(false);
+        toast.success(`Grant status updated to ${newStatus}`);
+        if (newStatus.includes('Approved') || newStatus.includes('Disbursed') || newStatus.includes('Review')) triggerEdgeGlow('Approved');
       })
       .catch(err => {
         if (newStatus === 'Fully Disbursed') setOtpError(err.response?.data?.message || 'Invalid OTP');
         else toast.error(err.response?.data?.message || 'Error updating status');
       });
   };
+// ✅ FIXED:
+const initiateVaultRelease = (grant) => {
+  const adminEmail = localStorage.getItem('currentUserEmail') || 'shauryacocid@gmail.com';
+  const promise = axios.post(`${API}/generate-otp`, { adminEmail });
+
+  toast.promise(promise, {
+    loading: 'Securing Vault Connection...',
+    success: 'OTP Sent to your verified email',
+    error: 'Failed to initialize Vault.'
+  });
+
+  promise.then(() => {
+    setOtpTargetGrant(grant);
+    setShowOtpModal(true);
+    setOtpError('');
+    setOtpInput('');
+    setViewingGrant(null);
+    setOtpTimeLeft(300);
+  });
+};
 
   const handleAddPrivateNote = (grantId) => {
     if (!privateNoteText.trim()) return;
@@ -833,13 +703,6 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
         fetchGrants();
       })
       .catch(err => toast.error('Failed to save private note.'));
-  };
-
-  const initiateVaultRelease = (grant) => {
-    const adminEmail = localStorage.getItem('currentUserEmail') || 'shauryacocid@gmail.com';
-    const promise = axios.post(`${API}/generate-otp`, { adminEmail })
-      .then(() => { setOtpTargetGrant(grant); setShowOtpModal(true); setOtpError(''); setOtpInput(''); setViewingGrant(null); setOtpTimeLeft(300); })
-    toast.promise(promise, { loading: 'Securing Vault Connection...', success: 'OTP Sent to your verified email', error: 'Failed to initialize Vault.' });
   };
 
   const confirmOtpRelease = () => {
@@ -1067,15 +930,14 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
                 <AnimatePresence mode="popLayout">
                   {initialLoad ? (
                     <>
-                      <motion.li key="sk1" className="history-item" layout><SkeletonRow /></motion.li>
-                      <motion.li key="sk2" className="history-item" layout><SkeletonRow /></motion.li>
-                      <motion.li key="sk3" className="history-item" layout><SkeletonRow /></motion.li>
+                      <motion.li key="sk1" className="history-item"><SkeletonRow /></motion.li>
+                      <motion.li key="sk2" className="history-item"><SkeletonRow /></motion.li>
+                      <motion.li key="sk3" className="history-item"><SkeletonRow /></motion.li>
                     </>
                   ) : processedGrants.length === 0 ? (
                     <motion.li
                       initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.96 }}
-                      layout
                       className="history-item glass-card"
                       style={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', textAlign: 'center', borderStyle: 'dashed', borderColor: 'var(--border-subtle)', background: 'rgba(255,255,255,0.01)' }}
                     >
@@ -1108,25 +970,8 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
                     return (
                       <motion.li
                         key={g.id}
-                        layout /* MAGIC LAYOUT FOR SMOOTH REORDERING */
                         initial={isRevealed ? { opacity: 1, y: 0 } : { opacity: 0, y: 25 }}
                         animate={isRevealed ? { opacity: 1, y: 0 } : undefined}
-
-                        /* ✨ THE MAGIC INBOX ZERO ANIMATION ✨ */
-                        exit={{
-                          opacity: 0,
-                          scale: 0.95,
-                          height: 0,
-                          paddingTop: 0,
-                          paddingBottom: 0,
-                          marginBottom: 0,
-                          borderWidth: 0,
-                          backgroundColor: 'rgba(16, 185, 129, 0.3)', /* Flashes Green */
-                          x: 50, /* Sweeps off to the right */
-                          transition: { duration: 0.4, ease: "anticipate" }
-                        }}
-                        /* ----------------------------------- */
-
                         whileInView={i > 0 ? { opacity: 1, y: 0 } : undefined}
                         onViewportEnter={i > 0 ? () => {
                           setRevealedGrantIds(prev => {
@@ -1190,9 +1035,11 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
                           </SpringTooltip>
 
                           {g.status === 'Pending' && (<>
-                            <HoldToApproveButton onApprove={() => updateStatus(g.id, 'Phase 1 Approved')} />
+                            <SpringTooltip text="Approve initial 35% funding">
+                              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="action-btn btn-approve" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => updateStatus(g.id, 'Phase 1 Approved')}><CheckCircle size={14} /> Approve Phase 1</motion.button>
+                            </SpringTooltip>
                             <SpringTooltip text="Decline and close application">
-                              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="action-btn btn-reject" style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '100%' }} onClick={() => { setRejectTarget(g); setRejectNote(''); }}><XCircle size={14} /> Reject</motion.button>
+                              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="action-btn btn-reject" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => { setRejectTarget(g); setRejectNote(''); }}><XCircle size={14} /> Reject</motion.button>
                             </SpringTooltip>
                           </>)}
 
@@ -1249,79 +1096,71 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
                     Live sync active
                   </motion.div>
                 </motion.div>
-              ) : (
-                <ul className="history-list dark-scroll">
-                  <AnimatePresence mode="popLayout">
-                    {actionQueue.map((g, i) => {
-                      const risk = getRisk(g.creditScore);
-                      const urgent = g.waitDays > 5;
-                      const hasFraudAlert = g.proofs?.some(p => p.forensics?.some(f => f.status === 'FLAGGED'));
+              ) : actionQueue.map((g, i) => {
+                const risk = getRisk(g.creditScore);
+                const urgent = g.waitDays > 5;
+                const hasFraudAlert = g.proofs?.some(p => p.forensics?.some(f => f.status === 'FLAGGED'));
 
-                      return (
-                        <motion.li key={g.id}
-                          layout
-                          exit={{
-                            opacity: 0, scale: 0.95, height: 0, paddingTop: 0, paddingBottom: 0, marginBottom: 0, borderWidth: 0, backgroundColor: 'rgba(16, 185, 129, 0.3)', x: 50, transition: { duration: 0.4, ease: "anticipate" }
-                          }}
-                          className={`glass-card history-item ${hasFraudAlert ? 'queue-card-forensic' : urgent ? 'queue-card-urgent' : g.waitDays > 3 ? 'queue-card-warning' : ''}`}
-                          style={{ borderLeft: `4px solid ${hasFraudAlert ? '#ef4444' : urgent ? '#f87171' : g.status === 'Awaiting Review' ? '#f97316' : g.status === 'Blocked' ? '#b91c1c' : '#fbbf24'}`, marginBottom: '14px', position: 'relative', overflow: 'hidden', display: 'block' }}
-                          initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: i * 0.12, type: 'spring', stiffness: 200, damping: 20 }}>
-                          <div className={`queue-wait-watermark${urgent ? ' urgent' : ''}`}>{g.waitDays}d</div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px' }}>
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                                <span className={`category-tag ${STANDARD_TYPES.includes(g.type) ? `cat-${g.type}` : 'cat-Other'}`}>{g.type}</span>
-                                <strong style={{ color: 'var(--text-primary)', fontSize: '15px', cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: '3px', textDecorationColor: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => setHistoryApplicant(g.source)}><User size={14} /> {g.source}</strong>
+                return (
+                  <motion.div key={g.id}
+                    className={`glass-card ${hasFraudAlert ? 'queue-card-forensic' : urgent ? 'queue-card-urgent' : g.waitDays > 3 ? 'queue-card-warning' : ''}`}
+                    style={{ borderLeft: `4px solid ${hasFraudAlert ? '#ef4444' : urgent ? '#f87171' : g.status === 'Awaiting Review' ? '#f97316' : g.status === 'Blocked' ? '#b91c1c' : '#fbbf24'}`, marginBottom: '14px', position: 'relative', overflow: 'hidden' }}
+                    initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.12, type: 'spring', stiffness: 200, damping: 20 }}>
+                    <div className={`queue-wait-watermark${urgent ? ' urgent' : ''}`}>{g.waitDays}d</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                          <span className={`category-tag ${STANDARD_TYPES.includes(g.type) ? `cat-${g.type}` : 'cat-Other'}`}>{g.type}</span>
+                          <strong style={{ color: 'var(--text-primary)', fontSize: '15px', cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: '3px', textDecorationColor: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => setHistoryApplicant(g.source)}><User size={14} /> {g.source}</strong>
 
-                                {g.strikes > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', background: g.strikes >= 3 ? '#7f1d1d' : '#9a3412', color: 'white', fontSize: '10px', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}><AlertTriangle size={10} /> {g.strikes}/3 STRIKES</span>}
+                          {g.strikes > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', background: g.strikes >= 3 ? '#7f1d1d' : '#9a3412', color: 'white', fontSize: '10px', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}><AlertTriangle size={10} /> {g.strikes}/3 STRIKES</span>}
 
-                                <span className="risk-badge" style={{ background: risk.bg, color: risk.color, border: `1px solid ${risk.color}30` }}><span className="risk-dot" style={{ background: risk.dot }}></span>{risk.label}</span>
-                              </div>
-                              <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>₹{g.amount.toLocaleString()} · Applied {g.date}</div>
-                              <div style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <span className="risk-badge" style={{ background: risk.bg, color: risk.color, border: `1px solid ${risk.color}30` }}><span className="risk-dot" style={{ background: risk.dot }}></span>{risk.label}</span>
+                        </div>
+                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>₹{g.amount.toLocaleString()} · Applied {g.date}</div>
+                        <div style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
 
-                                {hasFraudAlert ? (
-                                  <span className="forensic-alert" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '800', padding: '4px 12px', borderRadius: '10px' }}><ShieldAlert size={12} /> FORENSIC FLAG</span>
-                                ) : (
-                                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '800', padding: '3px 10px', borderRadius: '10px', background: urgent ? 'rgba(248,113,113,0.15)' : 'rgba(251,191,36,0.12)', color: urgent ? '#f87171' : '#fcd34d', border: `1px solid ${urgent ? 'rgba(248,113,113,0.3)' : 'rgba(251,191,36,0.25)'}` }}><Clock size={12} /> {g.waitDays}d waiting</span>
-                                )}
-                                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Status: <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{g.status}</span></span>
-                              </div>
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
-                              <SpringTooltip text="View full application details">
-                                <motion.button
-                                  whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                                  className="action-btn"
-                                  style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(79,156,249,0.08)', color: 'var(--accent-blue)', border: '1px solid rgba(79,156,249,0.2)' }}
-                                  onClick={() => setViewingApplication(g)}
-                                >
-                                  <FileText size={14} /> View Application
-                                </motion.button>
-                              </SpringTooltip>
-                              {g.status === 'Pending' && (<>
-                                <HoldToApproveButton onApprove={() => updateStatus(g.id, 'Phase 1 Approved')} />
-                                <SpringTooltip text="Decline and close application">
-                                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="action-btn btn-reject" style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '100%' }} onClick={() => { setRejectTarget(g); setRejectNote(''); }}><XCircle size={14} /> Reject</motion.button>
-                                </SpringTooltip>
-                              </>)}
+                          {hasFraudAlert ? (
+                            <span className="forensic-alert" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '800', padding: '4px 12px', borderRadius: '10px' }}><ShieldAlert size={12} /> FORENSIC FLAG</span>
+                          ) : (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '800', padding: '3px 10px', borderRadius: '10px', background: urgent ? 'rgba(248,113,113,0.15)' : 'rgba(251,191,36,0.12)', color: urgent ? '#f87171' : '#fcd34d', border: `1px solid ${urgent ? 'rgba(248,113,113,0.3)' : 'rgba(251,191,36,0.25)'}` }}><Clock size={12} /> {g.waitDays}d waiting</span>
+                          )}
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Status: <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{g.status}</span></span>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+                        <SpringTooltip text="View full application details">
+                          <motion.button
+                            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                            className="action-btn"
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(79,156,249,0.08)', color: 'var(--accent-blue)', border: '1px solid rgba(79,156,249,0.2)' }}
+                            onClick={() => setViewingApplication(g)}
+                          >
+                            <FileText size={14} /> View Application
+                          </motion.button>
+                        </SpringTooltip>
+                        {g.status === 'Pending' && (<>
+                          <SpringTooltip text="Approve initial 35% funding">
+                            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="action-btn btn-approve" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => updateStatus(g.id, 'Phase 1 Approved')}><CheckCircle size={14} /> Approve Phase 1</motion.button>
+                          </SpringTooltip>
+                          <SpringTooltip text="Decline and close application">
+                            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="action-btn btn-reject" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => { setRejectTarget(g); setRejectNote(''); }}><XCircle size={14} /> Reject</motion.button>
+                          </SpringTooltip>
+                        </>)}
 
-                              {(g.status === 'Awaiting Review' || g.status === 'Blocked') && (
-                                <SpringTooltip text={g.status === 'Blocked' ? "Open case file and internal notes" : "Analyze receipts & metadata"}>
-                                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="neon-btn neon-blue" style={{ width: 'auto', padding: '8px 18px', fontSize: '12px', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setViewingGrant(g)}>
-                                    {g.status === 'Blocked' ? <><ShieldAlert size={14} /> Investigate Case</> : <><FileSearch size={14} /> Review Proof</>}
-                                  </motion.button>
-                                </SpringTooltip>
-                              )}
-                            </div>
-                          </div>
-                        </motion.li>
-                      );
-                    })}
-                  </AnimatePresence>
-                </ul>
-              )}
+                        {(g.status === 'Awaiting Review' || g.status === 'Blocked') && (
+                          <SpringTooltip text={g.status === 'Blocked' ? "Open case file and internal notes" : "Analyze receipts & metadata"}>
+                            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="neon-btn neon-blue" style={{ width: 'auto', padding: '8px 18px', fontSize: '12px', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setViewingGrant(g)}>
+                              {g.status === 'Blocked' ? <><ShieldAlert size={14} /> Investigate Case</> : <><FileSearch size={14} /> Review Proof</>}
+                            </motion.button>
+                          </SpringTooltip>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
             </motion.div>
           </motion.div>)}
         </AnimatePresence>
@@ -1337,7 +1176,6 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
         <button onClick={clearSelection} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '20px', cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>×</button>
       </div>
 
-      {/* MODALS */}
       {showOtpModal && otpTargetGrant && (() => {
         const timerColor = otpTimeLeft > 120 ? '#3b82f6' : otpTimeLeft > 60 ? '#f59e0b' : '#ef4444';
         const timerPct = otpTimeLeft / 300;
@@ -1396,16 +1234,6 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
                   value={otpInput}
                   onChange={e => setOtpInput(e.target.value.replace(/[^0-9]/g, ''))}
                   disabled={otpTimeLeft === 0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      if (otpInput.length === 6 && otpTimeLeft > 0) {
-                        confirmOtpRelease();
-                      } else if (otpInput.length < 6) {
-                        setOtpError("Please enter the full 6-digit OTP first.");
-                      }
-                    }
-                  }}
                   animate={otpError ? { x: [-6, 6, -6, 6, 0] } : {}}
                   transition={{ duration: 0.3 }}
                   style={{ fontSize: '28px', letterSpacing: '12px', textAlign: 'center', fontWeight: '700', padding: '16px', opacity: otpTimeLeft === 0 ? 0.4 : 1, marginBottom: '6px', borderColor: otpError ? 'var(--accent-red)' : otpInput.length === 6 ? 'var(--accent-green)' : undefined }}
@@ -1455,6 +1283,8 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
         </div>
       )}
 
+      {/* ══ MODALS ══════════════════════════════════════════ */}
+
       <AnimatePresence>
         {viewingApplication && (() => {
           const g = viewingApplication;
@@ -1499,7 +1329,7 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
                         Grant Application
                       </div>
                       <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: '12px', marginTop: '2px' }}>
-                        ID #{String(g.id).split('-')[0]} · Submitted {g.date}
+                        ID #{g.id} · Submitted {g.date}
                       </div>
                     </div>
                   </div>
@@ -1624,10 +1454,14 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
 
                   {g.status === 'Pending' && (
                     <div style={{ display: 'flex', gap: '12px', paddingTop: '4px', borderTop: '1px solid var(--border-subtle)' }}>
-                      <HoldToApproveButton onApprove={() => {
-                        updateStatus(g.id, 'Phase 1 Approved');
-                        setViewingApplication(null);
-                      }} />
+                      <motion.button
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                        className="neon-btn neon-green"
+                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                        onClick={() => { updateStatus(g.id, 'Phase 1 Approved'); setViewingApplication(null); }}
+                      >
+                        <CheckCircle size={16} /> Approve Phase 1 (35%)
+                      </motion.button>
                       <motion.button
                         whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                         className="action-btn btn-reject"
@@ -1814,7 +1648,7 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
         })()}
       </AnimatePresence>
 
-      <AnimatePresence>
+     <AnimatePresence>
         {viewingGrant && (
           <>
             <motion.div
@@ -1906,138 +1740,274 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
                   {xrayMode && <span style={{ fontSize: '12px', color: 'var(--accent-green)', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(16,185,129,0.1)', padding: '4px 10px', borderRadius: '20px', border: '1px solid rgba(16,185,129,0.2)' }}><Eye size={14} /> DEEP SCAN ACTIVE</span>}
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  {viewingGrant.proofs?.map((proof, pIdx) => {
-                    const parsed = proof.description.includes('|')
-                      ? proof.description.split('|').reduce((acc, part) => { const [k, v] = part.split(':'); if (k && v) acc[k.trim()] = v.trim(); return acc; }, {})
-                      : { raw: proof.description };
+                {!viewingGrant.proofs || viewingGrant.proofs.length === 0 ? (
+                  <div style={{ padding: '30px', textAlign: 'center', background: 'var(--bg-elevated)', borderRadius: '12px', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>No artifacts submitted yet.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '20px' }}>
+                    {viewingGrant.proofs?.map((proof, pIdx) => {
+                      const parsed = proof.description.includes('|')
+                        ? proof.description.split('|').reduce((acc, part) => { const [k, v] = part.split(':'); if (k && v) acc[k.trim()] = v.trim(); return acc; }, {})
+                        : { raw: proof.description };
 
-                    return (
-                      <div key={pIdx} style={{ background: 'var(--bg-input)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border-subtle)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-                          <div style={{ flex: 1 }}>
-                            {parsed.Vendor ? (
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', background: 'var(--bg-elevated)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                                <div>
-                                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}><Building2 size={12} /> Vendor / Payee</div>
-                                  <div style={{ fontSize: '15px', color: 'var(--text-primary)', fontWeight: '600' }}>{parsed.Vendor}</div>
-                                </div>
-                                <div>
-                                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Amount Spent</div>
-                                  <div style={{ fontSize: '18px', color: 'var(--accent-green)', fontWeight: '800' }}>{parsed.Amt}</div>
-                                </div>
-                                <div>
-                                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Ledger Category</div>
-                                  <div style={{ fontSize: '14px', color: parsed.Cat === viewingGrant.type ? 'var(--accent-green)' : '#f97316', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>{parsed.Cat} {parsed.Cat === viewingGrant.type ? <CheckCircle size={14} /> : <AlertTriangle size={14} />}</div>
-                                </div>
-                                <div>
-                                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Tax/GST Registry</div>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <span style={{ fontSize: '15px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{parsed.GST || 'N/A'}</span>
-                                    {parsed.GST && parsed.GST !== 'N/A' && (
-                                      <button onClick={() => verifyVendor(parsed.GST, pIdx)} disabled={verifyingVendor === pIdx} style={{ background: 'var(--bg-base)', color: 'var(--accent-blue)', border: '1px solid var(--accent-blue)', borderRadius: '6px', fontSize: '11px', padding: '4px 10px', cursor: 'pointer', fontWeight: 'bold' }}>
-                                        {verifyingVendor === pIdx ? '...' : vendorStatus[pIdx] ? 'Scanned' : 'Query DB'}
-                                      </button>
-                                    )}
+                      return (
+                        <div key={pIdx} style={{ background: 'var(--bg-input)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border-subtle)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+                            <div style={{ flex: 1 }}>
+                              {parsed.Vendor ? (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '16px', background: 'var(--bg-elevated)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                                  <div>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}><Building2 size={12} /> Vendor / Payee</div>
+                                    <div style={{ fontSize: '15px', color: 'var(--text-primary)', fontWeight: '600' }}>{parsed.Vendor}</div>
                                   </div>
-                                  {vendorStatus[pIdx] && <div style={{ fontSize: '12px', color: vendorStatus[pIdx].includes('✅') ? 'var(--accent-green)' : '#f97316', marginTop: '6px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>{vendorStatus[pIdx].includes('✅') ? <CheckCircle size={12} /> : <AlertTriangle size={12} />} {vendorStatus[pIdx]}</div>}
+                                  <div>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Amount Spent</div>
+                                    <div style={{ fontSize: '18px', color: 'var(--accent-green)', fontWeight: '800' }}>{parsed.Amt}</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Ledger Category</div>
+                                    <div style={{ fontSize: '14px', color: parsed.Cat === viewingGrant.type ? 'var(--accent-green)' : '#f97316', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>{parsed.Cat} {parsed.Cat === viewingGrant.type ? <CheckCircle size={14} /> : <AlertTriangle size={14} />}</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Tax/GST Registry</div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                      <span style={{ fontSize: '15px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{parsed.GST || 'N/A'}</span>
+                                      {parsed.GST && parsed.GST !== 'N/A' && (
+                                        <button onClick={() => verifyVendor(parsed.GST, pIdx)} disabled={verifyingVendor === pIdx} style={{ background: 'var(--bg-base)', color: 'var(--accent-blue)', border: '1px solid var(--accent-blue)', borderRadius: '6px', fontSize: '11px', padding: '4px 10px', cursor: 'pointer', fontWeight: 'bold' }}>
+                                          {verifyingVendor === pIdx ? '...' : vendorStatus[pIdx] ? 'Scanned' : 'Query DB'}
+                                        </button>
+                                      )}
+                                    </div>
+                                    {vendorStatus[pIdx] && <div style={{ fontSize: '12px', color: vendorStatus[pIdx].includes('✅') ? 'var(--accent-green)' : '#f97316', marginTop: '6px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>{vendorStatus[pIdx].includes('✅') ? <CheckCircle size={12} /> : <AlertTriangle size={12} />} {vendorStatus[pIdx]}</div>}
+                                  </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '16px', background: 'var(--bg-elevated)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                                <FileSignature size={16} style={{ marginRight: '8px', color: 'var(--text-muted)' }} /> "{proof.description}"
-                              </div>
-                            )}
+                              ) : (
+                                <div style={{ color: 'var(--text-primary)', fontWeight: '700', fontSize: '16px', background: 'var(--bg-elevated)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                                  <FileSignature size={16} style={{ marginRight: '8px', color: 'var(--text-muted)' }} /> "{proof.description}"
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}><Clock size={12} /> Uploaded on {proof.date}</div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '16px' }}>
+                            {proof.images?.map((img, idx) => {
+                              const forensic = proof.forensics?.[idx];
+                              const isPdf = img.startsWith('data:application/pdf');
+                              const isFlagged = forensic?.status === 'FLAGGED';
+                              const borderColor = isFlagged ? '#ef4444' : 'var(--border-subtle)';
+
+                              return (
+                                <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '10px', position: 'relative' }}>
+                                  {xrayMode && !isPdf && (
+                                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(4, 15, 10, 0.9)', borderRadius: '12px', border: isFlagged ? '2px solid #ef4444' : '2px solid #10b981', padding: '12px', fontFamily: 'monospace', fontSize: '11px', color: isFlagged ? '#ef4444' : '#10b981', pointerEvents: 'none', zIndex: 10, overflow: 'hidden' }}>
+                                      <motion.div animate={{ top: ['0%', '100%'] }} transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }} style={{ position: 'absolute', left: 0, right: 0, height: '3px', background: isFlagged ? '#ef4444' : '#10b981', boxShadow: `0 0 15px ${isFlagged ? '#ef4444' : '#10b981'}` }} />
+                                      <strong style={{ borderBottom: '1px dashed', display: 'block', paddingBottom: '6px', marginBottom: '6px', color: 'white' }}>EXIF METADATA SCAN</strong>
+                                      <div style={{ color: 'rgba(255,255,255,0.6)' }}>SIG: {viewingGrant.currentHash?.slice(0, 10)}...</div>
+                                      <div style={{ marginTop: '8px', color: 'white' }}>EXTRACT:</div>
+                                      <div style={{ wordWrap: 'break-word', opacity: 0.9, lineHeight: '1.4', marginTop: '4px' }}>{forensic?.details}</div>
+                                      <div style={{ marginTop: 'auto', paddingTop: '8px', fontWeight: '900', fontSize: '14px', borderTop: '1px dashed', display: 'flex', alignItems: 'center', gap: '6px' }}>{isFlagged ? <><AlertTriangle size={14} /> TAMPERED</> : <><CheckCircle size={14} /> CLEAN</>}</div>
+                                    </div>
+                                  )}
+
+                                  {isPdf ? (
+                                    <div onClick={() => setEnlargedImage(img)} style={{ width: '100%', height: '180px', background: 'var(--bg-elevated)', border: `2px solid ${borderColor}`, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in', transition: 'all 0.2s', color: 'var(--text-muted)' }} title="Click to view PDF"><FileText size={48} style={{ opacity: 0.5 }} /></div>
+                                  ) : (
+                                    <img src={img} alt="" onClick={() => setEnlargedImage(img)} style={{ width: '100%', height: '180px', objectFit: 'cover', borderRadius: '12px', border: `2px solid ${borderColor}`, cursor: 'zoom-in', transition: 'transform 0.2s', filter: xrayMode ? 'contrast(1.6) brightness(0.6)' : 'none' }} onMouseOver={e => e.currentTarget.style.transform = 'scale(1.02)'} onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'} />
+                                  )}
+                                  {forensic && (
+                                    <div style={{ fontSize: '11px', padding: '8px 10px', borderRadius: '8px', background: isFlagged ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: isFlagged ? '#ef4444' : '#34d399', border: `1px solid ${isFlagged ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`, lineHeight: '1.4' }}>
+                                      <strong style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px', fontSize: '12px' }}>{isFlagged ? <AlertTriangle size={12} /> : <CheckCircle size={12} />} {isFlagged ? 'FAILED FORENSICS' : 'PASSED FORENSICS'}</strong>
+                                      {forensic.details}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
+                      );
+                    })}
+                  </div>
+                )}
 
-                        <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}><Clock size={12} /> Uploaded on {proof.date}</div>
-
-                        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                          {proof.images?.map((img, idx) => {
-                            const forensic = proof.forensics?.[idx];
-                            const isPdf = img.startsWith('data:application/pdf');
-                            const isFlagged = forensic?.status === 'FLAGGED';
-                            const borderColor = isFlagged ? '#ef4444' : 'var(--border-subtle)';
-
-                            return (
-                              <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '200px', position: 'relative' }}>
-                                {xrayMode && !isPdf && (
-                                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(4, 15, 10, 0.9)', borderRadius: '12px', border: isFlagged ? '2px solid #ef4444' : '2px solid #10b981', padding: '12px', fontFamily: 'monospace', fontSize: '11px', color: isFlagged ? '#ef4444' : '#10b981', pointerEvents: 'none', zIndex: 10, overflow: 'hidden' }}>
-                                    <motion.div animate={{ top: ['0%', '100%'] }} transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }} style={{ position: 'absolute', left: 0, right: 0, height: '3px', background: isFlagged ? '#ef4444' : '#10b981', boxShadow: `0 0 15px ${isFlagged ? '#ef4444' : '#10b981'}` }} />
-                                    <strong style={{ borderBottom: '1px dashed', display: 'block', paddingBottom: '6px', marginBottom: '6px', color: 'white' }}>EXIF METADATA SCAN</strong>
-                                    <div style={{ color: 'rgba(255,255,255,0.6)' }}>SIG: {String(viewingGrant.currentHash || viewingGrant.id).slice(0, 10)}...</div>
-                                    <div style={{ marginTop: '8px', color: 'white' }}>EXTRACT:</div>
-                                    <div style={{ wordWrap: 'break-word', opacity: 0.9, lineHeight: '1.4', marginTop: '4px' }}>{forensic?.details}</div>
-                                    <div style={{ marginTop: 'auto', paddingTop: '8px', fontWeight: '900', fontSize: '14px', borderTop: '1px dashed', display: 'flex', alignItems: 'center', gap: '6px' }}>{isFlagged ? <><AlertTriangle size={14} /> TAMPERED SYSTEM</> : <><CheckCircle size={14} /> CLEAN SYSTEM</>}</div>
-                                  </div>
-                                )}
-
-                                {isPdf ? (
-                                  <div onClick={() => setEnlargedImage(img)} style={{ width: '100%', height: '240px', background: 'var(--bg-elevated)', border: `2px solid ${borderColor}`, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in', transition: 'all 0.2s', color: 'var(--text-muted)' }} onMouseOver={e => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.borderColor = 'var(--text-muted)'; }} onMouseOut={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.borderColor = borderColor; }} title="Click to view PDF Document"><FileText size={64} style={{ opacity: 0.5 }} /></div>
-                                ) : (
-                                  <img src={img} alt="" onClick={() => setEnlargedImage(img)} style={{ width: '100%', height: '240px', objectFit: 'cover', borderRadius: '12px', border: `2px solid ${borderColor}`, cursor: 'zoom-in', transition: 'transform 0.2s', filter: xrayMode ? 'contrast(1.6) brightness(0.6)' : 'none' }} onMouseOver={e => e.currentTarget.style.transform = 'scale(1.02)'} onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'} />
-                                )}
-                                {forensic && (
-                                  <div style={{ fontSize: '11px', padding: '8px 10px', borderRadius: '8px', background: isFlagged ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: isFlagged ? '#ef4444' : '#34d399', border: `1px solid ${isFlagged ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`, lineHeight: '1.4' }}>
-                                    <strong style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px', fontSize: '12px' }}>{isFlagged ? <AlertTriangle size={12} /> : <CheckCircle size={12} />} {isFlagged ? 'FAILED FORENSICS' : 'PASSED FORENSICS'}</strong>
-                                    {forensic.details}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div style={{ display: 'flex', gap: '16px', marginTop: 'auto', paddingTop: '24px', borderTop: '1px solid var(--border-subtle)' }}>
+                  {viewingGrant.status !== 'Blocked' && (
+                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="neon-btn neon-blue" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} onClick={() => initiateVaultRelease(viewingGrant)}>
+                      <ShieldCheck size={18} /> Initiate Vault Release (OTP)
+                    </motion.button>
+                  )}
+                  {viewingGrant.status === 'Blocked' && (
+                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="neon-btn neon-green" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} onClick={() => { updateStatus(viewingGrant.id, 'Awaiting Review', 'Investigation cleared.'); setViewingGrant(null); }}>
+                      <CheckCircle2 size={18} /> Clear Investigation & Unfreeze
+                    </motion.button>
+                  )}
+                  {viewingGrant.status !== 'Blocked' && (
+                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} style={{ flex: 1, padding: '14px', borderRadius: '10px', background: 'rgba(249, 115, 22, 0.1)', color: '#f97316', border: '1px solid rgba(249, 115, 22, 0.3)', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => { setShowFreezeModal(true); setFreezeReason(''); }}>
+                      <ShieldAlert size={18} /> Freeze Account
+                    </motion.button>
+                  )}
+                  <button onClick={() => { setViewingGrant(null); setRejectTarget(viewingGrant); setRejectNote(''); }} style={{ padding: '14px 24px', background: 'transparent', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Reject</button>
                 </div>
               </div>
-
-              {(viewingGrant.status === 'Pending' || viewingGrant.status === 'Awaiting Review' || viewingGrant.status === 'Blocked') && (
-                <div style={{ padding: '20px 32px', background: 'var(--bg-elevated)', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: '16px', flexShrink: 0 }}>
-                  {viewingGrant.status === 'Pending' && (
-                    <>
-                      <HoldToApproveButton onApprove={() => {
-                        updateStatus(viewingGrant.id, 'Phase 1 Approved');
-                        setViewingGrant(null);
-                      }} />
-                      <motion.button
-                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                        className="action-btn btn-reject"
-                        style={{ flex: 1, padding: '14px', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                        onClick={() => { setViewingGrant(null); setRejectTarget(viewingGrant); setRejectNote(''); }}
-                      >
-                        <XCircle size={16} /> Reject
-                      </motion.button>
-                    </>
-                  )}
-                  {(viewingGrant.status === 'Awaiting Review' || viewingGrant.status === 'Blocked') && (
-                    <>
-                      <motion.button
-                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                        className="neon-btn neon-green"
-                        style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', fontSize: '15px' }}
-                        onClick={() => initiateVaultRelease(viewingGrant)}
-                      >
-                        <ShieldCheck size={20} /> Authorize Disbursal
-                      </motion.button>
-                      <motion.button
-                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                        className="neon-btn neon-red"
-                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '14px', padding: '14px' }}
-                        onClick={() => { setViewingGrant(null); setRejectTarget(viewingGrant); setRejectNote(''); }}
-                      >
-                        <ShieldAlert size={18} /> Flag & Block
-                      </motion.button>
-                    </>
-                  )}
-                </div>
-              )}
             </motion.div>
           </>
         )}
       </AnimatePresence>
+
+  <AnimatePresence>
+  {showFreezeModal && viewingGrant && (
+    <>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.25 }}
+        style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.5)' }}
+        onClick={() => { setShowFreezeModal(false); setFreezeReason(''); }}
+      />
+      <motion.div
+        initial={{ x: '100%', opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        exit={{ x: '100%', opacity: 0 }}
+        transition={{ type: 'spring', damping: 28, stiffness: 220, mass: 0.8 }}
+        style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '100%', maxWidth: '480px', zIndex: 10001, display: 'flex', flexDirection: 'column', background: 'var(--bg-base)', borderLeft: '1px solid rgba(239,68,68,0.25)', boxShadow: '-10px 0 50px rgba(0,0,0,0.5)' }}
+      >
+        {/* Header */}
+        <div style={{ background: 'linear-gradient(135deg, rgba(185,28,28,0.95), rgba(239,68,68,0.8))', padding: '24px 32px', display: 'flex', alignItems: 'center', gap: '14px', flexShrink: 0 }}>
+          <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ShieldAlert size={22} color="white" />
+          </div>
+          <div>
+            <h2 style={{ color: 'white', margin: 0, fontSize: '20px', fontFamily: 'DM Serif Display, serif', letterSpacing: '0.3px' }}>Freeze Account</h2>
+            <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '13px', marginTop: '3px' }}>
+              {viewingGrant.source} · ₹{viewingGrant.amount?.toLocaleString()}
+            </div>
+          </div>
+          <button
+            onClick={() => { setShowFreezeModal(false); setFreezeReason(''); }}
+            style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'color 0.2s' }}
+            onMouseOver={e => e.currentTarget.style.color = 'white'}
+            onMouseOut={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}
+          >
+            <XCircle size={26} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }} className="dark-scroll">
+
+          {/* Case summary */}
+          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '12px', padding: '16px 20px', marginBottom: '28px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '4px' }}>Applicant</div>
+              <div style={{ fontSize: '14px', color: 'var(--text-primary)', fontWeight: '700' }}>{viewingGrant.source}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '4px' }}>Grant Amount</div>
+              <div style={{ fontSize: '14px', color: 'var(--accent-blue)', fontWeight: '700' }}>₹{viewingGrant.amount?.toLocaleString()}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '4px' }}>Category</div>
+              <div style={{ fontSize: '14px', color: 'var(--text-primary)', fontWeight: '600' }}>{viewingGrant.type}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '4px' }}>Case ID</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>#{viewingGrant.id}</div>
+            </div>
+          </div>
+
+          {/* Reason selection */}
+          <div style={{ marginBottom: '8px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '14px', fontWeight: '600' }}>Select Investigation Reason</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {[
+                { label: 'Suspected Identity Fraud', icon: '🪪' },
+                { label: 'Duplicate Application Detected', icon: '📋' },
+                { label: 'Unverified Institutional Guarantor', icon: '🏛' },
+                { label: 'Suspicious Spending Pattern', icon: '📊' },
+                { label: 'Compliance Hold — Pending Manual Review', icon: '⚖️' },
+              ].map(({ label, icon }) => (
+                <button key={label} onClick={() => setFreezeReason(label)}
+                  style={{ padding: '13px 16px', borderRadius: '10px', border: `1px solid ${freezeReason === label ? 'rgba(239,68,68,0.5)' : 'var(--border-subtle)'}`, background: freezeReason === label ? 'rgba(239,68,68,0.08)' : 'var(--bg-elevated)', color: freezeReason === label ? '#f87171' : 'var(--text-secondary)', textAlign: 'left', cursor: 'pointer', fontWeight: freezeReason === label ? '700' : '400', fontSize: '13px', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ width: '18px', height: '18px', borderRadius: '50%', border: `2px solid ${freezeReason === label ? '#f87171' : 'var(--text-muted)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
+                    {freezeReason === label && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f87171', display: 'block' }} />}
+                  </span>
+                  <span style={{ fontSize: '14px', flexShrink: 0 }}>{icon}</span>
+                  {label}
+                </button>
+              ))}
+
+              {/* Other option */}
+              <button onClick={() => setFreezeReason('Other')}
+                style={{ padding: '13px 16px', borderRadius: '10px', border: `1px solid ${['Suspected Identity Fraud','Duplicate Application Detected','Unverified Institutional Guarantor','Suspicious Spending Pattern','Compliance Hold — Pending Manual Review',''].includes(freezeReason) ? 'var(--border-subtle)' : 'rgba(239,68,68,0.5)'}`, background: !['Suspected Identity Fraud','Duplicate Application Detected','Unverified Institutional Guarantor','Suspicious Spending Pattern','Compliance Hold — Pending Manual Review',''].includes(freezeReason) ? 'rgba(239,68,68,0.08)' : 'var(--bg-elevated)', color: !['Suspected Identity Fraud','Duplicate Application Detected','Unverified Institutional Guarantor','Suspicious Spending Pattern','Compliance Hold — Pending Manual Review',''].includes(freezeReason) ? '#f87171' : 'var(--text-secondary)', textAlign: 'left', cursor: 'pointer', fontSize: '13px', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ width: '18px', height: '18px', borderRadius: '50%', border: `2px solid ${!['Suspected Identity Fraud','Duplicate Application Detected','Unverified Institutional Guarantor','Suspicious Spending Pattern','Compliance Hold — Pending Manual Review',''].includes(freezeReason) ? '#f87171' : 'var(--text-muted)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {!['Suspected Identity Fraud','Duplicate Application Detected','Unverified Institutional Guarantor','Suspicious Spending Pattern','Compliance Hold — Pending Manual Review',''].includes(freezeReason) && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f87171', display: 'block' }} />}
+                </span>
+                <span style={{ fontSize: '14px', flexShrink: 0 }}>✏️</span>
+                Other — Please specify
+              </button>
+            </div>
+          </div>
+
+          {/* Custom textarea — animates in when Other is selected */}
+          <AnimatePresence>
+            {freezeReason === 'Other' && (
+              <motion.div
+                initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
+                exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                style={{ overflow: 'hidden' }}
+              >
+                <textarea
+                  autoFocus
+                  placeholder="Describe the reason for this investigation hold..."
+                  onChange={e => { if (e.target.value) setFreezeReason(e.target.value); }}
+                  rows={4}
+                  style={{ width: '100%', padding: '14px 16px', borderRadius: '10px', background: 'var(--bg-elevated)', border: '1px solid rgba(239,68,68,0.35)', color: 'var(--text-primary)', fontSize: '13px', resize: 'vertical', outline: 'none', fontFamily: 'inherit', lineHeight: '1.6', boxSizing: 'border-box' }}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Warning notice */}
+          <div style={{ marginTop: '24px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '10px', padding: '14px 16px' }}>
+            <div style={{ fontSize: '12px', color: '#fca5a5', lineHeight: '1.7' }}>
+              <strong style={{ color: '#f87171' }}>This action will:</strong> freeze the grant, add a strike to the applicant's record, send a formal compliance email with the case ID and reason, and auto-log a private investigation note. It cannot be undone without admin clearance.
+            </div>
+          </div>
+        </div>
+
+        {/* Footer actions */}
+        <div style={{ padding: '20px 32px', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: '12px', flexShrink: 0 }}>
+          <button
+            onClick={() => { setShowFreezeModal(false); setFreezeReason(''); }}
+            style={{ flex: 1, padding: '13px', borderRadius: '10px', background: 'transparent', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)', cursor: 'pointer', fontWeight: '600', fontSize: '14px' }}>
+            Cancel
+          </button>
+          <motion.button
+            whileHover={{ scale: (freezeReason && freezeReason !== 'Other') ? 1.02 : 1 }}
+            whileTap={{ scale: (freezeReason && freezeReason !== 'Other') ? 0.98 : 1 }}
+            onClick={() => {
+              if (!freezeReason || freezeReason === 'Other') return;
+              axios.post(`${API}/update-status`, {
+                id: viewingGrant.id, status: 'Blocked',
+                actionBy: currentUser, note: freezeReason,
+                freezeReason, adminEmail: localStorage.getItem('currentUserEmail')
+              }).then(() => {
+                fetchGrants(); setShowFreezeModal(false); setViewingGrant(null); setFreezeReason('');
+                toast.success('Account frozen. Applicant notified.');
+              }).catch(() => toast.error('Failed to freeze account.'));
+            }}
+            style={{ flex: 2, padding: '13px', borderRadius: '10px', background: (freezeReason && freezeReason !== 'Other') ? 'rgba(239,68,68,0.15)' : 'transparent', border: `1px solid ${(freezeReason && freezeReason !== 'Other') ? 'rgba(239,68,68,0.5)' : 'var(--border-subtle)'}`, color: (freezeReason && freezeReason !== 'Other') ? '#f87171' : 'var(--text-muted)', cursor: (freezeReason && freezeReason !== 'Other') ? 'pointer' : 'not-allowed', fontWeight: '700', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s', opacity: (freezeReason && freezeReason !== 'Other') ? 1 : 0.4 }}>
+            <ShieldAlert size={16} /> Confirm Freeze
+          </motion.button>
+        </div>
+
+      </motion.div>
+    </>
+  )}
+</AnimatePresence>
 
       <AnimatePresence>
         {viewingImpact && (() => {
@@ -2216,4 +2186,3 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
     </div>
   );
 }
-// END OF FILE

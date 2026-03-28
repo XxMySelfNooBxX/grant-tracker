@@ -1,461 +1,3 @@
-/* ============================================================
-   APPLICANT DASHBOARD CORE
-   ============================================================ */
-.app-wrapper {
-  min-height: 100vh;
-  background: var(--bg-base);
-  color: var(--text-primary);
-  position: relative;
-  overflow-x: hidden;
-}
-
-.app-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 40px 24px;
-  display: flex;
-  flex-direction: column;
-}
-
-.ambient-glow {
-  position: absolute;
-  width: 600px;
-  height: 600px;
-  border-radius: 50%;
-  filter: blur(100px);
-  opacity: 0.4;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.glow-1 {
-  top: -200px;
-  right: -200px;
-  background: radial-gradient(circle, rgba(79, 156, 249, 0.15) 0%, transparent 70%);
-}
-
-.glow-2 {
-  bottom: -200px;
-  left: -200px;
-  background: radial-gradient(circle, rgba(167, 139, 250, 0.15) 0%, transparent 70%);
-}
-
-/* ============================================================
-   LAYOUT GRIDS
-   ============================================================ */
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 24px;
-  margin-bottom: 24px;
-}
-
-.summary-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 24px;
-  margin-bottom: 24px;
-}
-
-/* ============================================================
-   GLASS CARDS & COMPONENTS
-   ============================================================ */
-.glass-card {
-  background: var(--bg-surface);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border-subtle);
-  border-radius: 16px;
-  padding: 24px;
-  position: relative;
-  z-index: 1;
-  box-shadow: var(--shadow-sm);
-}
-
-.stat-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.stat-label {
-  font-size: 13px;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  font-weight: 700;
-  margin-bottom: 8px;
-}
-
-.stat-value {
-  font-family: 'DM Serif Display', serif;
-  font-size: 42px;
-  font-weight: 400;
-  line-height: 1;
-  color: var(--text-primary);
-}
-
-.stat-sub {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: 8px;
-}
-
-/* ============================================================
-   TYPOGRAPHY & UTILITIES
-   ============================================================ */
-.section-title {
-  font-family: 'DM Serif Display', serif;
-  font-size: 20px;
-  margin-bottom: 16px;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.gradient-text {
-  background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin: 0 0 4px 0;
-  font-family: 'DM Serif Display', serif;
-}
-
-.no-data {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: var(--text-muted);
-  font-style: italic;
-  font-size: 13px;
-  padding: 40px;
-}
-
-/* ============================================================
-   INPUTS & FORMS
-   ============================================================ */
-.input-label {
-  display: block;
-  font-size: 11px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-weight: 700;
-  margin-bottom: 6px;
-  margin-top: 12px;
-}
-
-.dark-input {
-  width: 100%;
-  background: var(--bg-input);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-primary);
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 13px;
-  transition: all 0.2s ease;
-  outline: none;
-}
-
-.dark-input:focus {
-  border-color: var(--accent-blue);
-  box-shadow: 0 0 0 1px var(--accent-blue);
-}
-
-.dark-input::placeholder {
-  color: var(--text-muted);
-}
-
-/* ============================================================
-   BUTTONS
-   ============================================================ */
-.neon-btn {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-primary);
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-family: 'DM Sans', sans-serif;
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: var(--shadow-btn);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-.neon-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.neon-btn.neon-blue {
-  background: rgba(37, 99, 235, 0.15);
-  border-color: rgba(59, 130, 246, 0.4);
-  color: #60a5fa;
-}
-
-.neon-btn.neon-blue:hover:not(:disabled) {
-  background: rgba(37, 99, 235, 0.25);
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
-}
-
-.neon-btn.neon-green {
-  background: rgba(16, 185, 129, 0.15);
-  border-color: rgba(16, 185, 129, 0.4);
-  color: #34d399;
-}
-
-.neon-btn.neon-green:hover:not(:disabled) {
-  background: rgba(16, 185, 129, 0.25);
-  box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
-}
-
-.action-btn {
-  background: var(--bg-input);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.action-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
-}
-
-.logout-btn {
-  background: transparent;
-  border: 1px solid var(--border-subtle);
-  color: var(--text-muted);
-  padding: 6px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  transition: all 0.2s;
-}
-
-.logout-btn:hover {
-  background: rgba(248, 113, 113, 0.1);
-  color: var(--accent-red);
-  border-color: rgba(248, 113, 113, 0.3);
-}
-
-.theme-toggle {
-  background: transparent;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  opacity: 0.7;
-  transition: opacity 0.2s;
-}
-
-.theme-toggle:hover {
-  opacity: 1;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 30px;
-}
-
-.header-actions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-/* ============================================================
-   BADGES & TAGS
-   ============================================================ */
-.status-badge {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.status-Pending,
-.status-AwaitingReview {
-  background: rgba(251, 191, 36, 0.1);
-  color: var(--accent-yellow);
-  border: 1px solid rgba(251, 191, 36, 0.2);
-}
-
-.status-Phase1Approved,
-.status-FullyDisbursed,
-.status-Evaluated {
-  background: rgba(52, 211, 153, 0.1);
-  color: var(--accent-green);
-  border: 1px solid rgba(52, 211, 153, 0.2);
-}
-
-.status-Rejected,
-.status-Blocked {
-  background: rgba(248, 113, 113, 0.1);
-  color: var(--accent-red);
-  border: 1px solid rgba(248, 113, 113, 0.2);
-}
-
-.category-tag {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-subtle);
-}
-
-.cat-Research {
-  color: var(--accent-blue);
-  background: rgba(79, 156, 249, 0.1);
-  border-color: rgba(79, 156, 249, 0.2);
-}
-
-.cat-Travel {
-  color: var(--accent-purple);
-  background: rgba(167, 139, 250, 0.1);
-  border-color: rgba(167, 139, 250, 0.2);
-}
-
-.cat-Equipment {
-  color: var(--accent-yellow);
-  background: rgba(251, 191, 36, 0.1);
-  border-color: rgba(251, 191, 36, 0.2);
-}
-
-.risk-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.risk-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-
-/* ============================================================
-   TABS
-   ============================================================ */
-.tab-bar {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 24px;
-  padding: 6px;
-  background: rgba(15, 23, 42, 0.6);
-  border-radius: 12px;
-  border: 1px solid var(--border-subtle);
-  width: fit-content;
-}
-
-.tab-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.tab-btn:hover {
-  color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.tab-btn.active {
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-  box-shadow: var(--shadow-sm);
-}
-
-/* ============================================================
-   MODALS
-   ============================================================ */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  padding: 20px;
-}
-
-.glass-modal-content {
-  background: var(--bg-surface);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--border-subtle);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
-  border-radius: 20px;
-  padding: 32px;
-  width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.glass-modal-content::-webkit-scrollbar {
-  width: 6px;
-}
-
-.glass-modal-content::-webkit-scrollbar-thumb {
-  background: var(--border-subtle);
-  border-radius: 10px;
-}
-
-/* ============================================================
-   TABLE
-   ============================================================ */
-.table-header {
-  padding: 12px;
-  color: var(--text-muted);
-  font-size: 11px;
-  text-transform: uppercase;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.table-row td {
-  padding: 14px 12px;
-  vertical-align: middle;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
 .score-bar-track,
 .disbursal-track {
   height: 6px;
@@ -526,9 +68,7 @@
   padding: 12px;
 }
 
-/* ============================================================
-   CYBER TOOLTIP
-   ============================================================ */
+/* 3. Magnetic Cyber Tooltip */
 .cyber-tooltip {
   background: rgba(15, 23, 42, 0.75);
   border: 1px solid rgba(79, 156, 249, 0.4);
@@ -543,9 +83,7 @@
   white-space: nowrap;
 }
 
-/* ============================================================
-   STRUCTURED LEDGER & CROP UI
-   ============================================================ */
+/* ── SPRINT 2: STRUCTURED LEDGER & CROP UI ── */
 .ledger-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -602,6 +140,120 @@
   border: 2px dashed var(--accent-blue);
 }
 
+/* ── SPRINT 2: AI ASSISTANT CHATBOT ── */
+.ai-chat-widget {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  z-index: 99999;
+}
+
+.ai-chat-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  border: none;
+  box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);
+  font-size: 28px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  transition: transform 0.3s;
+}
+
+.ai-chat-btn:hover {
+  transform: scale(1.1);
+}
+
+.ai-chat-window {
+  position: absolute;
+  bottom: 80px;
+  right: 0;
+  width: 340px;
+  height: 450px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ai-chat-header {
+  background: var(--bg-elevated);
+  padding: 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: bold;
+}
+
+.ai-chat-body {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ai-msg {
+  max-width: 80%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.ai-msg.ai {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  color: var(--text-primary);
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+
+.ai-msg.user {
+  background: var(--accent-blue);
+  color: white;
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+}
+
+.ai-chat-input-area {
+  display: flex;
+  padding: 12px;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ai-chat-input-area input {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  outline: none;
+  font-family: inherit;
+}
+
+.ai-chat-input-area button {
+  background: var(--accent-blue);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 0 12px;
+  margin-left: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
 /* ============================================================
    STYLED DROP ZONE
    ============================================================ */
@@ -610,6 +262,11 @@ label[htmlfor^="file-drop-"]:hover {
   border-color: var(--accent-blue) !important;
   background: rgba(79, 156, 249, 0.06) !important;
 }
+
+/* ============================================================
+   ACCOUNTABILITY RING
+   ============================================================ */
+/* Ring container already inline — just ensure smooth colour transitions */
 
 /* ============================================================
    HISTORY TABLE IMPROVEMENTS

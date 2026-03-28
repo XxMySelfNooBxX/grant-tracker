@@ -1,0 +1,5 @@
+runtime: nodejs22
+env_variables:
+  EMAIL_USER: "ss.sepm.project.ss@gmail.com"
+  EMAIL_PASS: "hapngswlkxompiep"
+  MONGO_URI: "mongodb+srv://shauryacocid_db_user:vcNuzVfB6qBPDtya@cluster0.3lo8tcv.mongodb.net/GrantTracker?retryWrites=true&w=majority&appName=Cluster0"

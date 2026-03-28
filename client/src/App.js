@@ -138,7 +138,8 @@ function App() {
   const toggleTheme = () => setIsDarkMode(p => !p);
 
   const fetchGrants = useCallback(() => {
-    axios.get(`http://localhost:3001/grants?t=${Date.now()}`)
+    // 👇 Cloud backend URL updated here 👇
+    axios.get(`https://micrograntportal.el.r.appspot.com/grants?t=${Date.now()}`)
       .then(res => setGrantsList([...(res.data || [])]))
       .catch(err => console.log('Sync error:', err));
   }, []);

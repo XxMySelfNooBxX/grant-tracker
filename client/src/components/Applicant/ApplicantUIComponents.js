@@ -1,9 +1,12 @@
+// ============================================================================
+// BLOCK 1: IMPORTS
+// ============================================================================
 import React from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle2, Circle, Clock, ShieldAlert } from 'lucide-react';
 
 // ============================================================================
-// GRANT LIFECYCLE STEPPER
+// BLOCK 2: GRANT LIFECYCLE STEPPER COMPONENT
 // ============================================================================
 export const LifecycleStepper = ({ status, date }) => {
     const steps = [

@@ -11,7 +11,7 @@ import './Login.css';
 const paneVariants = {
   initial: { opacity: 0, x: 24 },
   animate: { opacity: 1, x: 0, transition: { duration: 0.38, ease: [0.22, 1, 0.36, 1] } },
-  exit:    { opacity: 0, x: -18, transition: { duration: 0.22, ease: 'easeIn' } },
+  exit: { opacity: 0, x: -18, transition: { duration: 0.22, ease: 'easeIn' } },
 };
 
 const cardVariants = {
@@ -53,7 +53,7 @@ const RoleButton = ({ icon, title, sub, onClick, variant, index }) => (
 
 // ─── Main component ────────────────────────────────────────────────────────
 export default function Login({ setIsLoggedIn, setUserRole, setCurrentUser, setCurrentUserEmail, fetchGrants, onLoginComplete }) {
-  const [loginStep,        setLoginStep]        = useState('selection');
+  const [loginStep, setLoginStep] = useState('selection');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   const particlesInit = useCallback(async engine => {
@@ -64,11 +64,19 @@ export default function Login({ setIsLoggedIn, setUserRole, setCurrentUser, setC
     setIsAuthenticating(true);
     setTimeout(() => {
       const decodedUser = jwtDecode(credentialResponse.credential);
-      const ADMIN_EMAIL = 'shauryacocid@gmail.com';
+
+      // ✅ Array of authorized admin emails
+      const AUTHORIZED_ADMINS = [
+        'shauryacocid@gmail.com',
+        'srishtisinha1931@gmail.com', // Replace with friend 1's email
+        'anishassawant@gmail.com'  // Replace with friend 2's email
+      ];
+
       let role = 'applicant';
 
       if (loginStep === 'adminAuth') {
-        if (decodedUser.email !== ADMIN_EMAIL) {
+        // ✅ Check if the logged-in email exists in the authorized array
+        if (!AUTHORIZED_ADMINS.includes(decodedUser.email.toLowerCase())) {
           alert('❌ Access Denied: Unauthorized Administrator Account.');
           setIsAuthenticating(false);
           setLoginStep('selection');
@@ -77,9 +85,9 @@ export default function Login({ setIsLoggedIn, setUserRole, setCurrentUser, setC
         role = 'admin';
       }
 
-      localStorage.setItem('isLoggedIn',       'true');
-      localStorage.setItem('userRole',         role);
-      localStorage.setItem('currentUser',      decodedUser.name);
+      localStorage.setItem('isLoggedIn', 'true');
+      localStorage.setItem('userRole', role);
+      localStorage.setItem('currentUser', decodedUser.name);
       localStorage.setItem('currentUserEmail', decodedUser.email);
 
       setIsLoggedIn(true);
@@ -107,19 +115,19 @@ export default function Login({ setIsLoggedIn, setUserRole, setCurrentUser, setC
           fpsLimit: 60,
           interactivity: {
             events: { onHover: { enable: true, mode: 'grab' } },
-            modes:  { grab: { distance: 160, links: { opacity: 0.5, color: '#3b82f6' } } },
+            modes: { grab: { distance: 160, links: { opacity: 0.5, color: '#3b82f6' } } },
           },
           particles: {
             color: { value: ['#3b82f6', '#10b981', '#334155', '#6366f1'] },
             links: { color: '#1e293b', distance: 130, enable: true, opacity: 0.35, width: 1 },
-            move:  {
+            move: {
               enable: true, speed: 0.5, direction: 'none',
               random: true, straight: false, outModes: { default: 'out' },
             },
-            number:  { density: { enable: true, area: 900 }, value: 50 },
+            number: { density: { enable: true, area: 900 }, value: 50 },
             opacity: { value: { min: 0.2, max: 0.6 } },
-            shape:   { type: 'circle' },
-            size:    { value: { min: 1, max: 2.5 } },
+            shape: { type: 'circle' },
+            size: { value: { min: 1, max: 2.5 } },
           },
           detectRetina: true,
         }}

@@ -1,3 +1,6 @@
+// ============================================================================
+// BLOCK 1: IMPORTS & CONSTANTS
+// ============================================================================
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
@@ -8,13 +11,16 @@ import CountUp from 'react-countup';
 import confetti from 'canvas-confetti';
 import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
-import jsPDF from 'jspdf';
+import { Toaster, toast } from 'sonner';
 import './ApplicantDashboard.css';
 
 const STANDARD_TYPES = ["Research", "Travel", "Equipment", "Stipend"];
 const EXPENSE_CATEGORIES = ["Hardware", "Software", "Travel", "Consumables", "Services", "Other"];
 const API = 'http://localhost:3001';
 
+// ============================================================================
+// BLOCK 2: UTILITIES & HELPERS
+// ============================================================================
 const getTier = (grants) => {
   const completed = grants.filter(g => g.status === 'Evaluated' || g.status === 'Fully Disbursed').length;
   const total = grants.length;
@@ -56,6 +62,9 @@ const triggerConfetti = () => {
   }());
 };
 
+// ============================================================================
+// BLOCK 3: REUSABLE UI COMPONENTS
+// ============================================================================
 const SpringTooltip = ({ text, children }) => {
   const [show, setShow] = useState(false);
   const [pos, setPos] = useState({ x: 0, y: 0 });
@@ -165,8 +174,12 @@ const TabBtn = ({ id, label, badge, activeTab, setActiveTab }) => (
   </button>
 );
 
+// ============================================================================
+// BLOCK 4: COMPONENT STATE & EFFECTS
+// ============================================================================
 export default function ApplicantDashboard({ currentUser, currentUserEmail, grantsList = [], fetchGrants, handleLogout, isDarkMode, toggleTheme }) {
   const [activeTab, setActiveTab] = useState('overview');
+
   const [source, setSource] = useState(currentUser);
   const [amount, setAmount] = useState('');
   const [creditScore, setCreditScore] = useState('');
@@ -174,6 +187,7 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
   const [customType, setCustomType] = useState('');
   const [bypassMode, setBypassMode] = useState(false);
   const [reapplyFrom, setReapplyFrom] = useState(null);
+
   const [impactState, setImpactState] = useState({});
   const [editingGrant, setEditingGrant] = useState(null);
   const [editSource, setEditSource] = useState('');
@@ -206,6 +220,7 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
   const applyAmountNum = parseInt(amount) || 0;
   const applyIsNegative = amount !== '' && applyAmountNum <= 0;
   const applyExceedsLimit = !bypassMode && amount !== '' && applyAmountNum > 0 && applyAmountNum > eligibility.limit && eligibility.limit > 0;
+
   const applyFormValid = !!(source && amount && creditScore && !applyIsNegative && !applyExceedsLimit && (type !== 'Other' || customType));
 
   const last6 = [...myGrants].reverse().slice(-6);
@@ -252,6 +267,9 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
 
   const particlesInit = useCallback(async engine => { await loadSlim(engine); }, []);
 
+  // ============================================================================
+  // BLOCK 5: API CALLS & LOGIC
+  // ============================================================================
   const addGrant = () => {
     if (!source || !amount || !creditScore) return alert('Please fill in all fields');
     const reqAmount = parseInt(amount);
@@ -266,6 +284,7 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
     setAmountError('');
     if (!bypassMode && reqAmount > eligibility.limit) return alert(`🚫 Max allowed: ₹${eligibility.limit.toLocaleString()}`);
     const finalType = type === 'Other' ? customType : type;
+
     axios.post(`${API}/add-grant`, { source, amount: reqAmount, type: finalType, creditScore, userId: currentUserEmail })
       .then(() => {
         fetchGrants(); setAmount(''); setCreditScore(''); setType('Research'); setCustomType(''); setReapplyFrom(null); setAmountError('');
@@ -418,71 +437,13 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
     }, 0);
   };
 
-  const generateCertificate = (grant) => {
-    const doc = new jsPDF({ orientation: 'landscape', format: 'a4' });
-
-    doc.setFillColor(15, 23, 42);
-    doc.rect(0, 0, 297, 210, 'F');
-    doc.setDrawColor(59, 130, 246);
-    doc.setLineWidth(2);
-    doc.rect(10, 10, 277, 190, 'S');
-    doc.setDrawColor(139, 92, 246);
-    doc.setLineWidth(0.5);
-    doc.rect(12, 12, 273, 186, 'S');
-
-    doc.setTextColor(248, 250, 252);
-    doc.setFontSize(36);
-    doc.setFont(undefined, 'bold');
-    doc.text("Certificate of Execution", 148.5, 45, { align: "center" });
-
-    doc.setFontSize(14);
-    doc.setFont(undefined, 'normal');
-    doc.setTextColor(148, 163, 184);
-    doc.text("Official Record of Cryptographically Sealed Grant Delivery", 148.5, 55, { align: "center" });
-
-    doc.setFontSize(16);
-    doc.setTextColor(248, 250, 252);
-    doc.text("This certifies that", 148.5, 85, { align: "center" });
-
-    doc.setFontSize(32);
-    doc.setTextColor(52, 211, 153);
-    doc.setFont(undefined, 'bold');
-    doc.text(grant.source, 148.5, 100, { align: "center" });
-
-    doc.setFontSize(14);
-    doc.setTextColor(248, 250, 252);
-    doc.setFont(undefined, 'normal');
-    doc.text(`has successfully deployed a ₹${grant.amount.toLocaleString()} capital allocation`, 148.5, 115, { align: "center" });
-    doc.text(`under the ${grant.type} classification framework.`, 148.5, 122, { align: "center" });
-
-    if (grant.impact) {
-      doc.setFillColor(30, 41, 59);
-      doc.rect(40, 135, 217, 25, 'F');
-      doc.setFontSize(12);
-      doc.setTextColor(203, 213, 225);
-      doc.text(`Validated Outcome: "${grant.impact.outcome}"`, 148.5, 145, { align: "center" });
-      doc.text(`Key Performance Metric Achieved: ${grant.impact.metric}`, 148.5, 152, { align: "center" });
-    }
-
-    doc.setDrawColor(255, 255, 255, 0.1);
-    doc.line(40, 175, 257, 175);
-
-    doc.setFontSize(10);
-    doc.setTextColor(100, 116, 139);
-    doc.text(`Cryptographic Ledger Hash (SHA-256):`, 148.5, 182, { align: "center" });
-    doc.setFont(undefined, 'bold');
-    doc.text(grant.currentHash, 148.5, 188, { align: "center" });
-
-    doc.setFont(undefined, 'normal');
-    doc.setFontSize(9);
-    doc.text(`Date Verified: ${grant.impact ? grant.impact.date : grant.date} | ID: ${grant.id}`, 148.5, 194, { align: "center" });
-
-    triggerConfetti();
-    doc.save(`${grant.source}_Impact_Certificate_${grant.id}.pdf`);
-  };
-
+  // ============================================================================
+  // BLOCK 6: RENDER - HEADER & TABS
+  // ============================================================================
   return (
     <div className="app-wrapper" style={{ position: 'relative' }}>
+      <Toaster position="bottom-right" theme={isDarkMode ? 'dark' : 'light'} richColors expand={false} />
+
       <Particles
         id="applicant-particles"
         init={particlesInit}
@@ -519,6 +480,9 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
           <TabBtn id="history" label="📂 History" badge={pendingGrants.length} activeTab={activeTab} setActiveTab={setActiveTab} />
         </div>
 
+        {/* ============================================================================
+    BLOCK 7: RENDER - OVERVIEW TAB
+    ============================================================================ */}
         {activeTab === 'overview' && (<>
           <div className="summary-row" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
             <StatCard label="Total Received" value={totalReceived} prefix="₹" color="var(--accent-blue)" sub={`of ₹${totalRequested.toLocaleString()} requested`} sparkPoints={sparkReceived} />
@@ -548,27 +512,29 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                 { label: 'Gold', icon: '🥇', color: '#fbbf24', req: 3 },
               ];
               return (
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', padding: '8px 0 4px' }}>
-
-                  <div style={{ position: 'absolute', top: '30px', left: '16.66%', right: '16.66%', height: '2px', zIndex: 0 }}>
-                    <div style={{ width: '100%', height: '100%', background: 'var(--border-subtle)', borderRadius: '2px' }} />
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(100, (completedCount / 3) * 100)}%` }}
-                      transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
-                      style={{
-                        position: 'absolute', top: 0, left: 0, height: '100%',
-                        background: `linear-gradient(90deg, #f97316, #94a3b8, #fbbf24)`,
-                        borderRadius: '2px',
-                      }}
-                    />
-                  </div>
-
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0 4px' }}>
+                  <div style={{
+                    position: 'absolute', top: '50%', left: '24px', right: '24px',
+                    height: '2px', transform: 'translateY(-50%)',
+                    background: 'var(--border-subtle)', borderRadius: '2px', zIndex: 0,
+                  }} />
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(100, (completedCount / 3) * 100)}%` }}
+                    transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
+                    style={{
+                      position: 'absolute', top: '50%', left: '24px',
+                      height: '2px', transform: 'translateY(-50%)',
+                      background: `linear-gradient(90deg, #f97316, #94a3b8, #fbbf24)`,
+                      borderRadius: '2px', zIndex: 1,
+                      maxWidth: 'calc(100% - 48px)',
+                    }}
+                  />
                   {nodes.map((n, idx) => {
                     const reached = completedCount >= n.req;
                     const isCurrent = tier.label.toLowerCase().includes(n.label.toLowerCase());
                     return (
-                      <div key={n.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', zIndex: 2, position: 'relative' }}>
+                      <div key={n.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', zIndex: 2, position: 'relative' }}>
                         <motion.div
                           animate={isCurrent ? { scale: [1, 1.12, 1] } : {}}
                           transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
@@ -592,7 +558,7 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                         }}>
                           {n.label}
                         </div>
-                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', textAlign: 'center', whiteSpace: 'nowrap' }}>{n.req} project{n.req > 1 ? 's' : ''}</div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{n.req} project{n.req > 1 ? 's' : ''}</div>
                       </div>
                     );
                   })}
@@ -620,7 +586,6 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
               </div>
             ) : (
               <div style={{ position: 'relative', paddingLeft: '32px' }}>
-
                 <div style={{
                   position: 'absolute', left: '8px', top: '8px',
                   bottom: '8px', width: '2px',
@@ -708,6 +673,9 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
           </div>
         </>)}
 
+        {/* ============================================================================
+    BLOCK 8: RENDER - ACTIVE TAB
+    ============================================================================ */}
         {activeTab === 'active' && (<>
           {activeGrants.length === 0 ? (
             <div className="glass-card" style={{ textAlign: 'center', padding: '60px' }}>
@@ -997,6 +965,9 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
           })}
         </>)}
 
+        {/* ============================================================================
+    BLOCK 9: RENDER - APPLY TAB
+    ============================================================================ */}
         {activeTab === 'apply' && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} style={{ position: 'relative', padding: '2px', borderRadius: '16px', overflow: 'hidden' }}>
             <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, pointerEvents: 'none' }}>
@@ -1106,14 +1077,14 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
               <motion.button
                 whileHover={{ scale: applyFormValid ? 1.02 : 1, boxShadow: applyFormValid ? '0 8px 32px rgba(37,99,235,0.45)' : 'none' }}
                 whileTap={{ scale: applyFormValid ? 0.98 : 1 }}
-                onClick={applyFormValid ? addGrant : undefined}
+                onClick={applyFormValid && !myGrants.some(g => g.status === 'Blocked') ? addGrant : undefined}
                 style={{
                   width: '100%', padding: '15px 24px', borderRadius: '10px',
-                  background: applyFormValid
-                    ? 'linear-gradient(135deg, #2563eb 0%, #4f46e5 100%)'
-                    : 'var(--bg-elevated)',
-                  border: applyFormValid ? 'none' : '1px solid var(--border-subtle)',
-                  color: applyFormValid ? 'white' : 'var(--text-muted)',
+                  background: applyFormValid && !myGrants.some(g => g.status === 'Blocked')
+  ? 'linear-gradient(135deg, #2563eb 0%, #4f46e5 100%)'
+  : 'var(--bg-elevated)',
+border: applyFormValid && !myGrants.some(g => g.status === 'Blocked') ? 'none' : '1px solid var(--border-subtle)',
+color: applyFormValid && !myGrants.some(g => g.status === 'Blocked') ? 'white' : 'var(--text-muted)',
                   fontSize: '15px', fontWeight: '700',
                   cursor: applyFormValid ? 'pointer' : 'not-allowed',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
@@ -1137,6 +1108,9 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
           </motion.div>
         )}
 
+        {/* ============================================================================
+    BLOCK 10: RENDER - HISTORY TAB & MODALS
+    ============================================================================ */}
         {activeTab === 'history' && (
           <div className="glass-card">
             <h3 style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '18px', marginBottom: '20px', color: 'var(--text-heading)', fontWeight: '800', fontSize: '22px' }}>📂 Request History</h3>
@@ -1227,11 +1201,6 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
                                   <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => prefillReapply(g)} style={{ background: 'rgba(16,185,129,0.08)', color: 'var(--accent-green)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '7px', padding: '5px 12px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>🔁 Reapply</motion.button>
                                 </SpringTooltip>
                               )}
-                              {g.status === 'Evaluated' && (
-                                <SpringTooltip text="Download Certificate">
-                                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => generateCertificate(g)} style={{ background: 'rgba(139,92,246,0.08)', color: 'var(--accent-purple)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: '7px', padding: '5px 12px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>📜 Certificate</motion.button>
-                                </SpringTooltip>
-                              )}
                             </div>
                           </td>
                         </motion.tr>
@@ -1280,115 +1249,117 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
         )}
       </AnimatePresence>
 
-      {editingGrant && (() => {
-        const editElig = getEligibilityInfo(editScore);
-        const editAmtNum = parseInt(editAmount) || 0;
-        const editIsNegative = editAmount !== '' && editAmtNum <= 0;
-        const editExceeds = editAmount !== '' && editAmtNum > 0 && editAmtNum > editElig.limit && editElig.limit > 0;
-        const editValid = !!(editSource && editAmount && editScore && !editIsNegative && !editExceeds);
+      <AnimatePresence>
+        {editingGrant && (() => {
+          const editElig = getEligibilityInfo(editScore);
+          const editAmtNum = parseInt(editAmount) || 0;
+          const editIsNegative = editAmount !== '' && editAmtNum <= 0;
+          const editExceeds = editAmount !== '' && editAmtNum > 0 && editAmtNum > editElig.limit && editElig.limit > 0;
+          const editValid = !!(editSource && editAmount && editScore && !editIsNegative && !editExceeds);
 
-        return (
-          <motion.div className="modal-overlay"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <motion.div
-              className="glass-modal-content"
-              style={{ maxWidth: '500px' }}
-              initial={{ scale: 0.93, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.93, opacity: 0, y: 12 }}
-              transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+          return (
+            <motion.div className="modal-overlay"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <h2 style={{ color: 'var(--text-heading)', margin: 0, fontSize: '24px' }}>✏️ Edit Application</h2>
-                <button onClick={() => { setEditingGrant(null); setEditAmountError(''); }} style={{ background: 'none', border: 'none', fontSize: '32px', color: 'var(--text-muted)', cursor: 'pointer' }}>×</button>
-              </div>
-              <div style={{ background: 'var(--bg-info-panel)', border: '1px solid var(--border-info-panel)', borderRadius: '10px', padding: '12px 16px', marginBottom: '24px', fontSize: '14px', color: 'var(--accent-blue)' }}>
-                You can only edit applications that are still Pending review.
-              </div>
-
-              <label className="input-label">APPLICANT ALIAS</label>
-              <input className="dark-input" value={editSource} onChange={e => setEditSource(e.target.value)} />
-
-              <label className="input-label">CREDIT SCORE (300–900)</label>
-              <input className="dark-input" type="number" value={editScore} onChange={e => { setEditScore(e.target.value); setEditAmountError(''); }} />
-              {editScore && (
-                <div style={{ marginBottom: '16px' }}>
-                  <div className="score-bar-track">
-                    <div style={{ height: '100%', width: editElig.width, background: editElig.color, transition: 'width 0.5s ease-in-out', boxShadow: `0 0 8px ${editElig.color}` }} />
-                  </div>
-                  <div style={{ fontSize: '13px', fontWeight: '600', color: editElig.color }}>{editElig.msg}</div>
+              <motion.div
+                className="glass-modal-content"
+                style={{ maxWidth: '500px' }}
+                initial={{ scale: 0.93, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.93, opacity: 0, y: 12 }}
+                transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                  <h2 style={{ color: 'var(--text-heading)', margin: 0, fontSize: '24px' }}>✏️ Edit Application</h2>
+                  <button onClick={() => { setEditingGrant(null); setEditAmountError(''); }} style={{ background: 'none', border: 'none', fontSize: '32px', color: 'var(--text-muted)', cursor: 'pointer' }}>×</button>
                 </div>
-              )}
+                <div style={{ background: 'var(--bg-info-panel)', border: '1px solid var(--border-info-panel)', borderRadius: '10px', padding: '12px 16px', marginBottom: '24px', fontSize: '14px', color: 'var(--accent-blue)' }}>
+                  You can only edit applications that are still Pending review.
+                </div>
 
-              <label className="input-label">CATEGORY</label>
-              <select className="dark-input" value={editType} onChange={e => setEditType(e.target.value)}>
-                {STANDARD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                <option value="Other">Other</option>
-              </select>
+                <label className="input-label">APPLICANT ALIAS</label>
+                <input className="dark-input" value={editSource} onChange={e => setEditSource(e.target.value)} />
 
-              <label className="input-label">AMOUNT (₹)</label>
-              <input
-                className="dark-input"
-                type="number"
-                placeholder="e.g. 25000"
-                min="1"
-                value={editAmount}
-                onChange={e => { setEditAmount(e.target.value); setEditAmountError(''); }}
-                style={{
-                  borderColor: (editAmountError || editIsNegative || editExceeds) ? '#ef4444' : undefined,
-                  marginBottom: (editAmountError || editIsNegative || editExceeds) ? '6px' : undefined,
-                }}
-              />
-              {(editAmountError || editIsNegative) && (
-                <motion.div
-                  initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.2 }}
-                  style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '13px', color: '#ef4444', fontWeight: '600', marginBottom: '16px', padding: '9px 13px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '8px' }}
-                >
-                  ⚠️ {editAmountError || 'Amount must be greater than ₹0'}
-                </motion.div>
-              )}
-              {editExceeds && !editIsNegative && (
-                <motion.div
-                  initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.2 }}
-                  style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '13px', color: '#f59e0b', fontWeight: '600', marginBottom: '16px', padding: '9px 13px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '8px' }}
-                >
-                  ⚠️ Exceeds credit tier limit of ₹{editElig.limit.toLocaleString()} for score {editScore}
-                </motion.div>
-              )}
+                <label className="input-label">CREDIT SCORE (300–900)</label>
+                <input className="dark-input" type="number" value={editScore} onChange={e => { setEditScore(e.target.value); setEditAmountError(''); }} />
+                {editScore && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <div className="score-bar-track">
+                      <div style={{ height: '100%', width: editElig.width, background: editElig.color, transition: 'width 0.5s ease-in-out', boxShadow: `0 0 8px ${editElig.color}` }} />
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: editElig.color }}>{editElig.msg}</div>
+                  </div>
+                )}
 
-              <div style={{ display: 'flex', gap: '14px', marginTop: '12px' }}>
-                <motion.button
-                  whileHover={{ scale: editValid ? 1.02 : 1 }}
-                  whileTap={{ scale: editValid ? 0.98 : 1 }}
-                  onClick={editValid ? saveEdit : undefined}
+                <label className="input-label">CATEGORY</label>
+                <select className="dark-input" value={editType} onChange={e => setEditType(e.target.value)}>
+                  {STANDARD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  <option value="Other">Other</option>
+                </select>
+
+                <label className="input-label">AMOUNT (₹)</label>
+                <input
+                  className="dark-input"
+                  type="number"
+                  placeholder="e.g. 25000"
+                  min="1"
+                  value={editAmount}
+                  onChange={e => { setEditAmount(e.target.value); setEditAmountError(''); }}
                   style={{
-                    flex: 1, padding: '13px', borderRadius: '10px', fontWeight: '700',
-                    fontSize: '14px', fontFamily: 'DM Sans, sans-serif', cursor: editValid ? 'pointer' : 'not-allowed',
-                    background: editValid ? 'linear-gradient(135deg, #2563eb 0%, #4f46e5 100%)' : 'var(--bg-elevated)',
-                    border: editValid ? 'none' : '1px solid var(--border-subtle)',
-                    color: editValid ? 'white' : 'var(--text-muted)',
-                    opacity: editValid ? 1 : 0.55,
-                    boxShadow: editValid ? '0 4px 16px rgba(37,99,235,0.3)' : 'none',
-                    transition: 'all 0.2s ease',
+                    borderColor: (editAmountError || editIsNegative || editExceeds) ? '#ef4444' : undefined,
+                    marginBottom: (editAmountError || editIsNegative || editExceeds) ? '6px' : undefined,
                   }}
-                >
-                  Save Changes
-                </motion.button>
-                <button
-                  onClick={() => { setEditingGrant(null); setEditAmountError(''); }}
-                  style={{ flex: 1, background: 'transparent', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '15px' }}
-                >
-                  Cancel
-                </button>
-              </div>
+                />
+                {(editAmountError || editIsNegative) && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2 }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '13px', color: '#ef4444', fontWeight: '600', marginBottom: '16px', padding: '9px 13px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '8px' }}
+                  >
+                    ⚠️ {editAmountError || 'Amount must be greater than ₹0'}
+                  </motion.div>
+                )}
+                {editExceeds && !editIsNegative && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2 }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '13px', color: '#f59e0b', fontWeight: '600', marginBottom: '16px', padding: '9px 13px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '8px' }}
+                  >
+                    ⚠️ Exceeds credit tier limit of ₹{editElig.limit.toLocaleString()} for score {editScore}
+                  </motion.div>
+                )}
+
+                <div style={{ display: 'flex', gap: '14px', marginTop: '12px' }}>
+                  <motion.button
+                    whileHover={{ scale: editValid ? 1.02 : 1 }}
+                    whileTap={{ scale: editValid ? 0.98 : 1 }}
+                    onClick={editValid ? saveEdit : undefined}
+                    style={{
+                      flex: 1, padding: '13px', borderRadius: '10px', fontWeight: '700',
+                      fontSize: '14px', fontFamily: 'DM Sans, sans-serif', cursor: editValid ? 'pointer' : 'not-allowed',
+                      background: editValid ? 'linear-gradient(135deg, #2563eb 0%, #4f46e5 100%)' : 'var(--bg-elevated)',
+                      border: editValid ? 'none' : '1px solid var(--border-subtle)',
+                      color: editValid ? 'white' : 'var(--text-muted)',
+                      opacity: editValid ? 1 : 0.55,
+                      boxShadow: editValid ? '0 4px 16px rgba(37,99,235,0.3)' : 'none',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    Save Changes
+                  </motion.button>
+                  <button
+                    onClick={() => { setEditingGrant(null); setEditAmountError(''); }}
+                    style={{ flex: 1, background: 'transparent', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '15px' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        );
-      })()}
+          );
+        })()}
+      </AnimatePresence>
     </div>
   );
 }
