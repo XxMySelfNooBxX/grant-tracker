@@ -1,3 +1,4 @@
+require('dotenv').config();
 const exifr = require('exifr');
 const express = require('express');
 const cors = require('cors');
@@ -12,8 +13,8 @@ app.use(cors());
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: 'ss.sepm.project.ss@gmail.com', 
-    pass: 'fuvt evxp cykt ssxq'           
+    user: process.env.EMAIL_USER, 
+    pass: process.env.EMAIL_PASS           
   }
 });
 
