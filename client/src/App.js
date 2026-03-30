@@ -118,12 +118,12 @@ const TransitionScreen = ({ userName, role, onComplete }) => {
 
 // ── Main App ───────────────────────────────────────────────────────────────
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(localStorage.getItem('isLoggedIn') === 'true');
-  const [userRole, setUserRole] = useState(localStorage.getItem('userRole') || '');
-  const [currentUser, setCurrentUser] = useState(localStorage.getItem('currentUser') || '');
-  const [currentUserEmail, setCurrentUserEmail] = useState(localStorage.getItem('currentUserEmail') || '');
-  const [grantsList, setGrantsList] = useState([]);
-  const [showTransition, setShowTransition] = useState(false);
+  const [isLoggedIn,       setIsLoggedIn]       = useState(localStorage.getItem('isLoggedIn') === 'true');
+  const [userRole,         setUserRole]          = useState(localStorage.getItem('userRole') || '');
+  const [currentUser,      setCurrentUser]       = useState(localStorage.getItem('currentUser') || '');
+  const [currentUserEmail, setCurrentUserEmail]  = useState(localStorage.getItem('currentUserEmail') || '');
+  const [grantsList,       setGrantsList]        = useState([]);
+  const [showTransition,   setShowTransition]    = useState(false);
 
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('themeMode');
@@ -138,9 +138,8 @@ function App() {
   const toggleTheme = () => setIsDarkMode(p => !p);
 
   const fetchGrants = useCallback(() => {
-    // 👇 Cloud backend URL updated here 👇
-    axios.get(`https://micrograntportal.el.r.appspot.com/grants?t=${Date.now()}`)
-      .then(res => setGrantsList([...(res.data || [])]))
+    axios.get(`http://localhost:3001/grants?t=${Date.now()}`)
+      .then(res  => setGrantsList([...(res.data || [])]))
       .catch(err => console.log('Sync error:', err));
   }, []);
 
@@ -194,7 +193,7 @@ function App() {
     );
   }
 
-  if (userRole === 'admin') return <AdminDashboard currentUser={currentUser} currentUserEmail={currentUserEmail} grantsList={grantsList} fetchGrants={fetchGrants} handleLogout={handleLogout} isDarkMode={isDarkMode} toggleTheme={toggleTheme} />;
+  if (userRole === 'admin') return <AdminDashboard currentUser={currentUser} grantsList={grantsList} fetchGrants={fetchGrants} handleLogout={handleLogout} isDarkMode={isDarkMode} toggleTheme={toggleTheme} />;
   return <ApplicantDashboard currentUser={currentUser} currentUserEmail={currentUserEmail} grantsList={grantsList} fetchGrants={fetchGrants} handleLogout={handleLogout} isDarkMode={isDarkMode} toggleTheme={toggleTheme} />;
 }
 
