@@ -268,8 +268,12 @@ export default function ApplicantDashboard({ currentUser, currentUserEmail, gran
     const finalType = type === 'Other' ? customType : type;
     axios.post(`${API}/add-grant`, { source, amount: reqAmount, type: finalType, creditScore, userId: currentUserEmail })
       .then(() => {
-        fetchGrants(); setAmount(''); setCreditScore(''); setType('Research'); setCustomType(''); setReapplyFrom(null); setAmountError('');
-        setActiveTab('history'); triggerConfetti();
+        return fetchGrants(); // 1. Wait for the new ledger data to sync
+      })
+      .then(() => {
+        setAmount(''); setCreditScore(''); setType('Research'); setCustomType(''); setReapplyFrom(null); setAmountError('');
+        triggerConfetti();
+        fetchGrants().then(() => setActiveTab('history'));
       })
       .catch(err => {
         if (err.response?.data?.message?.includes('BLACKLISTED')) {

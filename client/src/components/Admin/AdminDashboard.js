@@ -13,7 +13,7 @@ import {
   LayoutDashboard, Zap, Download, ScrollText, CheckCircle, XCircle,
   FileSearch, ShieldAlert, Rocket, Search, AlertTriangle, Clock,
   User, Eye, Receipt, ShieldCheck, FileText, CheckCircle2,
-  FileSignature, Fingerprint, ScanLine, Building2
+  FileSignature, Fingerprint, ScanLine, Building2,BadgeCheck
 } from 'lucide-react';
 import './AdminDashboard.css';
 
@@ -664,6 +664,11 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
   const [privateNoteText, setPrivateNoteText] = useState('');
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
+  const [kycList,          setKycList]          = useState([]);
+  const [kycImages,        setKycImages]        = useState({});
+  const [kycRejectTarget,  setKycRejectTarget]  = useState(null);
+  const [kycRejectNote,    setKycRejectNote]    = useState('');
+  const [loadingKycImages, setLoadingKycImages] = useState({});
   const listRef = useRef(null);
 
   // ============================================================================
@@ -774,6 +779,27 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
   const selPending = [...selectedIds].filter(id => grantsList.find(g => g.id === id)?.status === 'Pending').length;
   const selRejectable = [...selectedIds].filter(id => ACTION_STATUSES.includes(grantsList.find(g => g.id === id)?.status)).length;
   const fetchLogs = () => axios.get(`${API}/logs`).then(r => setLogs(r.data)).catch(() => { });
+  const fetchKyc = () => axios.get(`${API}/verifications`).then(r => setKycList(r.data)).catch(() => {});
+
+const loadKycImages = (email) => {
+  if (kycImages[email]) return;
+  setLoadingKycImages(prev => ({ ...prev, [email]: true }));
+  axios.get(`${API}/verification-images/${email}`)
+    .then(r => setKycImages(prev => ({ ...prev, [email]: r.data })))
+    .finally(() => setLoadingKycImages(prev => ({ ...prev, [email]: false })));
+};
+
+const reviewKyc = (email, decision, note = '') => {
+  axios.post(`${API}/review-verification`, {
+    email, decision, note, reviewedBy: currentUser
+  }).then(() => {
+    fetchKyc();
+    triggerEdgeGlow(decision === 'Approved' ? 'Approved' : 'Rejected');
+    toast.success(`KYC ${decision} for ${email}`);
+    setKycRejectTarget(null);
+    setKycRejectNote('');
+  }).catch(() => toast.error('Failed to review KYC'));
+};
 
   const fullyDisbursedGrants = grantsList.filter(g => g.status === 'Fully Disbursed' || g.status === 'Evaluated');
   const totalImpact = grantsList.reduce((s, g) => s + (g.disbursedAmount || 0), 0);
@@ -799,6 +825,12 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
     const timer = setTimeout(() => setInitialLoad(false), 1000);
     return () => clearTimeout(timer);
   }, []);
+  useEffect(() => {
+  if (activeTab !== 'kyc') return;
+  fetchKyc(); // immediate fetch on tab open
+  const interval = setInterval(fetchKyc, 5000);
+  return () => clearInterval(interval);
+}, [activeTab]);
 
   useEffect(() => {
     setRevealedGrantIds(prev => {
@@ -944,38 +976,23 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
           </div>
         </div>
 
-        <div className="tab-bar" style={{ position: 'relative' }}>
-          {['dashboard', 'queue'].map((id) => (
-            activeTab === id && (
-              <motion.div
-                key="tab-indicator"
-                layoutId="tab-indicator"
-                style={{
-                  position: 'absolute',
-                  inset: '5px',
-                  width: id === 'dashboard' ? '140px' : '120px',
-                  left: id === 'dashboard' ? '5px' : '150px',
-                  background: 'var(--bg-surface)',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-subtle)',
-                  boxShadow: 'var(--shadow-btn)',
-                  zIndex: 0,
-                }}
-                transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-              />
-            )
-          ))}
-          <button className={`tab-btn ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('dashboard'); }}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative', zIndex: 1 }}>
-            <LayoutDashboard size={16} /> Dashboard
-          </button>
-          <button className={`tab-btn ${activeTab === 'queue' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('queue'); }}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative', zIndex: 1 }}>
-            <Zap size={16} /> Queue {actionQueue.length > 0 && `(${actionQueue.length})`}
-          </button>
-        </div>
+        <div className="tab-bar">
+  <button className={`tab-btn ${activeTab === 'dashboard' ? 'active' : ''}`}
+    onClick={() => setActiveTab('dashboard')}
+    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+    <LayoutDashboard size={16} /> Dashboard
+  </button>
+  <button className={`tab-btn ${activeTab === 'queue' ? 'active' : ''}`}
+    onClick={() => setActiveTab('queue')}
+    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+    <Zap size={16} /> Queue {actionQueue.length > 0 && `(${actionQueue.length})`}
+  </button>
+  <button className={`tab-btn ${activeTab === 'kyc' ? 'active' : ''}`}
+    onClick={() => setActiveTab('kyc')}
+    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+    <BadgeCheck size={16} /> KYC Queue {kycList.filter(k => k.status === 'Pending').length > 0 && `(${kycList.filter(k => k.status === 'Pending').length})`}
+  </button>
+</div>
 
         <AnimatePresence mode="wait" custom={activeTab === 'dashboard' ? -1 : 1}>
           {activeTab === 'dashboard' && (<motion.div key="dashboard" custom={-1} variants={{ initial: c => ({ opacity: 0, x: c * 40, filter: 'blur(4px)' }), animate: { opacity: 1, x: 0, filter: 'blur(0px)' }, exit: c => ({ opacity: 0, x: c * (-40), filter: 'blur(4px)' }) }} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}><>
@@ -2212,6 +2229,201 @@ export default function AdminDashboard({ currentUser, grantsList = [], fetchGran
           ]}
         />
       </AnimatePresence>
+      {activeTab === 'kyc' && (
+  <motion.div key="kyc" className="kyc-tab-content"
+    variants={{ initial: { opacity: 0, x: 40, filter: 'blur(4px)' }, animate: { opacity: 1, x: 0, filter: 'blur(0px)' }, exit: { opacity: 0, x: -40, filter: 'blur(4px)' } }}
+    initial="initial" animate="animate" exit="exit"
+    transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}>
+
+    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
+      <div className="section-title" style={{ margin: 0 }}>KYC Verification Queue</div>
+      <span style={{ background: 'rgba(79,156,249,0.15)', color: 'var(--accent-blue)',
+        border: '1px solid rgba(79,156,249,0.25)', fontSize: '12px', fontWeight: '700',
+        padding: '4px 12px', borderRadius: '20px' }}>
+        {kycList.filter(k => k.status === 'Pending').length} pending
+      </span>
+    </div>
+
+    {kycList.length === 0 ? (
+      <div className="glass-card" style={{ textAlign: 'center', padding: '64px 40px' }}>
+        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🪪</div>
+        <div style={{ color: 'var(--text-heading)', fontFamily: 'DM Serif Display,serif',
+          fontSize: '22px', marginBottom: '8px' }}>No verification requests</div>
+        <div style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
+          Applicants who submit their ID will appear here.
+        </div>
+      </div>
+    ) : (
+      <div className="history-list dark-scroll kyc-queue-list">
+        {kycList.map((kyc, i) => {
+  const imgs = kycImages[kyc.email];
+  const isLoading = loadingKycImages[kyc.email];
+  const isPending = kyc.status === 'Pending';
+
+  return (
+    <motion.div key={kyc.email}
+      initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: i * 0.07 }}
+      className="glass-card history-item kyc-card"
+      style={{
+        borderLeft: `4px solid ${isPending ? 'rgba(79,156,249,0.5)' : kyc.status === 'Approved' ? 'rgba(52,211,153,0.5)' : 'rgba(248,113,113,0.5)'}`,
+        padding: '24px',
+        display: 'block',
+      }}>
+
+      {/* Top row: avatar + info + actions */}
+      <div className="kyc-card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
+        
+        {/* Left: avatar + name + badges */}
+        <div className="kyc-card-profile" style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+          <div style={{ width: '44px', height: '44px', borderRadius: '50%', flexShrink: 0,
+            background: 'linear-gradient(135deg,var(--accent-blue),var(--accent-purple))',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '18px', fontWeight: '700', color: 'white' }}>
+            {kyc.name?.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <div style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '15px', marginBottom: '4px' }}>
+              {kyc.name}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>{kyc.email}</div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ background: 'rgba(79,156,249,0.1)', color: 'var(--accent-blue)',
+                border: '1px solid rgba(79,156,249,0.2)', fontSize: '11px', fontWeight: '700',
+                padding: '3px 10px', borderRadius: '8px' }}>
+                🪪 {kyc.idType}
+              </span>
+              <span className={`status-badge status-${kyc.status === 'Approved' ? 'Approved' : kyc.status === 'Rejected' ? 'Rejected' : 'Pending'}`}>
+                {kyc.status}
+              </span>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                Submitted {kyc.submittedAt}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: action buttons */}
+        {isPending && (
+          <div className="kyc-card-actions" style={{ display: 'flex', gap: '10px', flexShrink: 0 }}>
+            <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+              onClick={() => reviewKyc(kyc.email, 'Approved')}
+              className="neon-btn neon-green"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', width: 'auto' }}>
+              <BadgeCheck size={14} /> Approve
+            </motion.button>
+            <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+              onClick={() => { setKycRejectTarget(kyc); setKycRejectNote(''); }}
+              className="neon-btn neon-red"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', width: 'auto' }}>
+              <XCircle size={14} /> Reject
+            </motion.button>
+          </div>
+        )}
+      </div>
+
+      {/* Forensics row */}
+      <div className="kyc-card-forensics" style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        {[['Front', kyc.frontForensics], ['Back', kyc.backForensics]].map(([side, f]) => f && (
+          <div key={side} style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '8px',
+            background: f.status === 'FLAGGED' ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.08)',
+            color: f.status === 'FLAGGED' ? 'var(--accent-red)' : 'var(--accent-green)',
+            border: `1px solid ${f.status === 'FLAGGED' ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)'}`,
+            display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600' }}>
+            {f.status === 'FLAGGED' ? '⚠️' : '✅'} {side}: {f.details}
+          </div>
+        ))}
+      </div>
+
+      {/* Image section */}
+      {!imgs && !isLoading && (
+        <button onClick={() => loadKycImages(kyc.email)}
+          className="neon-btn neon-blue"
+          style={{ width: 'auto', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Eye size={14} /> Load ID Images
+        </button>
+      )}
+      {isLoading && (
+        <div style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '8px 0' }}>Loading images...</div>
+      )}
+      {imgs && (
+        <div className="kyc-image-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', maxWidth: '520px' }}>
+          {[['Front', imgs.frontImage], ['Back', imgs.backImage]].map(([side, src]) => (
+            <div key={side}>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700',
+                textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '8px' }}>
+                {side}
+              </div>
+              <img src={src} alt={side}
+                onClick={() => setEnlargedImage(src)}
+                style={{ width: '100%', height: '140px', objectFit: 'cover',
+                  borderRadius: '10px', border: '1px solid var(--border-subtle)',
+                  cursor: 'zoom-in', transition: 'transform 0.2s, box-shadow 0.2s',
+                  display: 'block' }}
+                onMouseOver={e => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.4)'; }}
+                onMouseOut={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = 'none'; }} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Rejection note */}
+      {kyc.status === 'Rejected' && kyc.rejectionNote && (
+        <div style={{ marginTop: '16px', background: 'rgba(239,68,68,0.07)',
+          border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px',
+          padding: '10px 14px', fontSize: '13px', color: 'var(--accent-red)' }}>
+          📝 Rejection reason: "{kyc.rejectionNote}"
+        </div>
+      )}
+    </motion.div>
+  );
+        })}
+      </div>
+    )}
+
+    {/* KYC Reject Modal */}
+    <AnimatePresence>
+      {kycRejectTarget && (
+        <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.div className="glass-modal-content" style={{ maxWidth: '440px' }}
+            initial={{ scale: 0.92, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.92, y: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, fontSize: '20px', color: 'var(--text-primary)',
+                display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <XCircle size={20} /> Reject Verification
+              </h2>
+              <button onClick={() => setKycRejectTarget(null)}
+                style={{ background: 'none', border: 'none', fontSize: '26px',
+                  color: 'var(--text-muted)', cursor: 'pointer' }}>×</button>
+            </div>
+            <div style={{ background: 'var(--bg-elevated)', borderRadius: '10px',
+              padding: '12px 16px', marginBottom: '18px', fontSize: '14px', color: 'var(--text-secondary)' }}>
+              Rejecting <strong>{kycRejectTarget.name}</strong>'s {kycRejectTarget.idType}. They will be notified and can resubmit.
+            </div>
+            <label className="input-label">Reason (shown to applicant) *</label>
+            <textarea className="dark-input" rows={3}
+              placeholder="e.g. Image is blurry, please upload a clearer photo."
+              value={kycRejectNote} onChange={e => setKycRejectNote(e.target.value)} />
+            <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+              <button className="neon-btn neon-red" style={{ flex: 1,
+                opacity: kycRejectNote.trim().length < 10 ? 0.5 : 1,
+                pointerEvents: kycRejectNote.trim().length < 10 ? 'none' : 'auto' }}
+                onClick={() => reviewKyc(kycRejectTarget.email, 'Rejected', kycRejectNote)}>
+                Confirm Rejection
+              </button>
+              <button onClick={() => setKycRejectTarget(null)}
+                style={{ flex: 1, background: 'transparent', border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-secondary)', borderRadius: '10px', cursor: 'pointer',
+                  fontWeight: '600', fontFamily: 'DM Sans' }}>
+                Cancel
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </motion.div>
+)}
 
     </div>
   );

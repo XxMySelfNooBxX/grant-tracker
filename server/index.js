@@ -22,6 +22,7 @@ let grants    = [];
 let auditLogs = [];
 let idCounter  = 1;
 let logCounter = 1;
+let verifications = [];
 
 // ── MFA OTP STORAGE ──
 let adminOtps = {}; 
@@ -59,6 +60,124 @@ const logAction = (admin, action, target, details, targetId = null) => {
 // ── routes ────────────────────────────────────────────────────────────────────
 
 // Attach strike count to grants payload for Admin UI
+// ── KYC VERIFICATION ROUTES ───────────────────────────────────────────────
+
+app.post('/submit-verification', async (req, res) => {
+  const { email, name, idType, frontImage, backImage } = req.body;
+  if (!email || !idType || !frontImage || !backImage)
+    return res.status(400).json({ message: 'All fields are required.' });
+
+  const existing = verifications.find(v => v.email === email);
+  if (existing && existing.status === 'Approved')
+    return res.status(400).json({ message: 'Already verified.' });
+
+  // Run EXIF forensics on both images
+  const scanImage = async (base64Str) => {
+    if (base64Str.startsWith('data:application/pdf'))
+      return { status: 'CLEAN', details: 'PDF Document' };
+    try {
+      const base64Data = base64Str.replace(/^data:image\/\w+;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+      const exifData = await exifr.parse(buffer);
+      if (!exifData) return { status: 'FLAGGED', details: '⚠️ Metadata stripped' };
+      const camera = exifData.Make ? `📸 ${exifData.Make} ${exifData.Model}` : '📸 Unknown Device';
+      return { status: 'CLEAN', details: camera };
+    } catch {
+      return { status: 'FLAGGED', details: '⚠️ Forensic scan failed' };
+    }
+  };
+
+  const frontForensics = await scanImage(frontImage);
+  const backForensics  = await scanImage(backImage);
+
+  if (existing) {
+    // Resubmission after rejection
+    existing.idType        = idType;
+    existing.frontImage    = frontImage;
+    existing.backImage     = backImage;
+    existing.frontForensics = frontForensics;
+    existing.backForensics  = backForensics;
+    existing.status        = 'Pending';
+    existing.submittedAt   = new Date().toLocaleString();
+    existing.rejectionNote = '';
+    logAction('System', 'KYC RESUBMITTED', name, `Resubmitted ${idType} for verification`, null);
+    return res.json({ message: 'Verification resubmitted', verification: existing });
+  }
+
+  const newVerification = {
+    email, name, idType,
+    frontImage, backImage,
+    frontForensics, backForensics,
+    status: 'Pending',
+    submittedAt: new Date().toLocaleString(),
+    reviewedBy: null,
+    rejectionNote: ''
+  };
+  verifications.push(newVerification);
+  logAction('System', 'KYC SUBMITTED', name, `Submitted ${idType} for KYC verification`, null);
+  res.json({ message: 'Verification submitted', verification: newVerification });
+});
+
+app.get('/verification-status/:email', (req, res) => {
+  const { email } = req.params;
+  const v = verifications.find(v => v.email === email);
+  if (!v) return res.json({ status: 'not_submitted' });
+  res.json({
+    status: v.status.toLowerCase().replace(' ', '_'),
+    idType: v.idType,
+    rejectionNote: v.rejectionNote,
+    submittedAt: v.submittedAt
+  });
+});
+
+app.get('/verifications', (req, res) => {
+  // Send everything except the raw base64 images in the list view
+  const safe = verifications.map(v => ({
+    email: v.email, name: v.name, idType: v.idType,
+    status: v.status, submittedAt: v.submittedAt,
+    frontForensics: v.frontForensics, backForensics: v.backForensics,
+    rejectionNote: v.rejectionNote, reviewedBy: v.reviewedBy
+  }));
+  res.json(safe);
+});
+
+app.get('/verification-images/:email', (req, res) => {
+  const v = verifications.find(v => v.email === req.params.email);
+  if (!v) return res.status(404).json({ message: 'Not found' });
+  res.json({ frontImage: v.frontImage, backImage: v.backImage });
+});
+
+app.post('/review-verification', (req, res) => {
+  const { email, decision, note, reviewedBy } = req.body;
+  const v = verifications.find(v => v.email === email);
+  if (!v) return res.status(404).json({ message: 'Verification not found' });
+
+  v.status     = decision; // 'Approved' or 'Rejected'
+  v.reviewedBy = reviewedBy;
+  v.rejectionNote = note || '';
+
+  logAction(reviewedBy, `KYC ${decision.toUpperCase()}`, v.name,
+    `${decision} ${v.idType} verification${note ? ` | Note: "${note}"` : ''}`, null);
+
+  if (decision === 'Approved') {
+    const mailOptions = {
+      from: '"Vault Security Bot" <ss.sepm.project.ss@gmail.com>',
+      to: email,
+      subject: '✅ Identity Verified — You can now apply for grants',
+      html: `
+        <div style="font-family:Arial,sans-serif;padding:25px;border:1px solid #e2e8f0;border-radius:12px;max-width:500px;">
+          <h2 style="color:#10b981;margin-top:0;">Identity Verified!</h2>
+          <p>Hello <b>${v.name}</b>,</p>
+          <p>Your <b>${v.idType}</b> has been successfully verified by our team. You can now log in and apply for micro-grants.</p>
+          <p style="color:#64748b;font-size:12px;margin-top:20px;">Verified by: ${reviewedBy}</p>
+        </div>`
+    };
+    transporter.sendMail(mailOptions).catch(err => console.error('KYC email error:', err));
+  }
+
+  res.json({ message: `Verification ${decision}`, verification: v });
+});
+
 app.get('/grants', (req, res) => {
   const enrichedGrants = grants.map(g => ({ 
     ...g, 
